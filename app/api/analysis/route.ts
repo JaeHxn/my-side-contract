@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { analyzeContract } from "@/src/lib/analysis/service";
-import { contractCategories } from "@/src/lib/contracts/types";
+import { enabledCategories } from "@/src/lib/contracts/categories";
 import { getAccessCodeAllowlist, verifyAccessCode } from "@/src/lib/payments/access-code";
 
 const analysisRequestSchema = z.object({
   contractText: z.string().trim().min(30, "계약서 내용은 최소 30자 이상 입력해주세요.").max(50000),
-  category: z.enum(contractCategories).default("housing-lease"),
+  category: z.enum(enabledCategories).default("housing-lease"),
   accessCode: z.string().trim().min(1, "6자리 분석 코드를 입력해주세요.")
 });
 

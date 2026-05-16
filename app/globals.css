@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --background: #fbfaf7;
+  --foreground: #14110f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(86, 117, 104, 0.16), transparent 26rem),
+    linear-gradient(135deg, rgba(251, 250, 247, 1), rgba(244, 249, 246, 1) 52%, rgba(249, 245, 237, 1));
+  color: var(--foreground);
+  font-family:
+    "Pretendard",
+    "Apple SD Gothic Neo",
+    "Noto Sans KR",
+    "Malgun Gothic",
+    system-ui,
+    sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(86, 117, 104, 0.24);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.contract-paper {
+  background:
+    linear-gradient(90deg, rgba(20, 17, 15, 0.05) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(20, 17, 15, 0.05) 1px, transparent 1px),
+    #fffdf8;
+  background-size: 28px 28px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fade-up {
+    animation: fade-up 520ms ease-out both;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

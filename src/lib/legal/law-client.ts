@@ -64,7 +64,7 @@ function parseLawSearchPayload(payload: Record<string, unknown>): LawApiDocument
   const rows = Array.isArray(rawLaw) ? rawLaw : rawLaw ? [rawLaw] : [];
 
   return rows
-    .map((row) => {
+    .map((row): LawApiDocument | null => {
       if (!row || typeof row !== "object") {
         return null;
       }
@@ -73,7 +73,11 @@ function parseLawSearchPayload(payload: Record<string, unknown>): LawApiDocument
       const title = String(record.법령명한글 ?? record.lawName ?? record.법령명 ?? "");
       const url = record.법령상세링크 ? `https://www.law.go.kr${String(record.법령상세링크)}` : undefined;
 
-      return title ? { title, url } : null;
+      if (!title) {
+        return null;
+      }
+
+      return url ? { title, url } : { title };
     })
-    .filter((document): document is LawApiDocument => Boolean(document));
+    .filter((document): document is LawApiDocument => document !== null);
 }

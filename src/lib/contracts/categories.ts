@@ -8,4 +8,4 @@ export const categoryLabels: Record<ContractCategory, string> = {
   freelance: "프리랜서 계약서"
 };
 
-export const enabledCategories: ContractCategory[] = ["housing-lease"];
+export const enabledCategories = ["housing-lease"] as const satisfies readonly ContractCategory[];
