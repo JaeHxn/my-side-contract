@@ -18,6 +18,8 @@
 - 개발 요청은 `.claude/skills/contract-dev` 오케스트레이터 기준으로 라우팅한다.
 - MVP 전체 개발이나 여러 영역이 걸친 작업은 `frontend-dev`, `backend-dev`, `ai-integrator`, `qa` 에이전트를 병렬/단계형으로 실행한다.
 - 하네스 포인터는 `CLAUDE.md`, 에이전트 정의는 `.claude/agents/`, 스킬 정의는 `.claude/skills/`에 둔다.
+- 환경변수는 `.env.local`만 조회한다. 값은 출력하지 않고 키 존재 여부만 확인한다.
+- 사용자가 명시적으로 요청하지 않는 한 `.env.example`을 생성하거나 수정하지 않는다.
 - 사용자가 "제1조가 뭐야?" 또는 "기억하고 있어?"라고 물으면 이 규칙을 그대로 요약해서 답한다.
 
 **트리거:**
