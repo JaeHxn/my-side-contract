@@ -1,6 +1,6 @@
 ---
 name: contract-dev
-description: "내편계약서 MVP 개발 오케스트레이터. 프론트엔드 페이지, 백엔드 API, Claude API/OCR/법령 API 통합, QA 검증 등 모든 개발 작업을 조율한다. '만들어줘', '구현해줘', '개발', '추가', '수정', '버그 고쳐줘', '페이지', 'API', '컴포넌트', '기능' 등 개발 관련 요청이 오면 반드시 이 스킬을 사용한다. MVP 전체 개발, 단일 기능 추가, 코드 수정, 리팩토링, 다시 만들어줘, 이전 결과 개선 모두 포함. 단순 질문이나 개념 설명은 제외."
+description: "내편계약서 MVP 개발 오케스트레이터. 프론트엔드 페이지, 백엔드 API, OpenAI API/OCR/법령 API 통합, QA 검증 등 모든 개발 작업을 조율한다. '만들어줘', '구현해줘', '개발', '추가', '수정', '버그 고쳐줘', '페이지', 'API', '컴포넌트', '기능' 등 개발 관련 요청이 오면 반드시 이 스킬을 사용한다. MVP 전체 개발, 단일 기능 추가, 코드 수정, 리팩토링, 다시 만들어줘, 이전 결과 개선 모두 포함. 단순 질문이나 개념 설명은 제외."
 ---
 
 # 내편계약서 개발 오케스트레이터
@@ -26,7 +26,7 @@ description: "내편계약서 MVP 개발 오케스트레이터. 프론트엔드 
 |----------|------------|
 | 페이지, 컴포넌트, UI, 화면 | `frontend-dev` |
 | API 엔드포인트, DB, 결제 플로우, Supabase | `backend-dev` |
-| Claude API 분석, OCR, 법령 API, 프롬프트 | `ai-integrator` |
+| OpenAI API 분석, OCR, 법령 API, 프롬프트 | `ai-integrator` |
 | 블로그, 마케팅 글, 커뮤니티 포스팅, 쇼츠 | → `content-marketing` 스킬 사용 |
 | 버그, 검증, 테스트, 품질 확인 | `qa` |
 
@@ -48,7 +48,7 @@ Agent(
 동시 실행:
 - frontend-dev: 업로드/결과/관리자 페이지 UI
 - backend-dev: Supabase 스키마 + API 엔드포인트
-- ai-integrator: OCR + 법령 API + Claude 분석 파이프라인
+- ai-integrator: OCR + 법령 API + OpenAI 분석 파이프라인
 ```
 
 **Phase 1-B: 통합 검증 (QA 서브 에이전트)**
@@ -75,4 +75,4 @@ QA 보고서의 실패 항목을 해당 에이전트에게 재위임.
 "업로드 페이지 만들어줘" → frontend-dev 서브 에이전트 → `app/upload/page.tsx` 생성 → `_workspace/01_frontend_upload.md` 보고
 
 **에러 흐름:**
-"Claude API 분석 안 돼" → QA 에이전트로 분석 결과 JSON 구조 검증 → 실패 항목 → ai-integrator에게 프롬프트 수정 위임
+"OpenAI API 분석 안 돼" → QA 에이전트로 분석 결과 JSON 구조 검증 → 실패 항목 → ai-integrator에게 프롬프트 수정 위임

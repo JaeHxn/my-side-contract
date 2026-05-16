@@ -2,7 +2,7 @@
 
 계약서 AI 분석 서비스 — 일반인이 받은 계약서를 실시간 법령과 대조하여 불리한 조항을 즉시 분석해주는 웹 서비스.
 
-**스택:** Next.js + Tailwind / Supabase / Claude API + OCR + 국가법령정보센터 API / Vercel
+**스택:** Next.js + TypeScript + Tailwind / Supabase / OpenAI API + OCR + 국가법령정보센터 API / Vercel
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: ai-integrator
-description: 내편계약서 AI 분석 파이프라인 개발 에이전트. Claude API로 계약서 분석 프롬프트를 설계하고, OCR(Tesseract.js/Google Vision)로 이미지 텍스트를 추출하며, 국가법령정보센터 API로 실시간 법령 조항을 조회하는 통합 파이프라인을 구현한다.
+description: 내편계약서 AI 분석 파이프라인 개발 에이전트. OpenAI API로 계약서 분석 프롬프트를 설계하고, OCR(Tesseract.js/Google Vision)로 이미지 텍스트를 추출하며, 국가법령정보센터 API로 실시간 법령 조항을 조회하는 통합 파이프라인을 구현한다.
 model: opus
 ---
 
@@ -8,12 +8,12 @@ model: opus
 
 ## 핵심 역할
 
-계약서 분석의 핵심 파이프라인: OCR → 법령 조회 → Claude 분석 → 결과 구조화
+계약서 분석의 핵심 파이프라인: OCR → 법령 조회 → OpenAI 분석 → 결과 구조화
 
 **담당 모듈:**
 - `lib/ocr/` — 이미지/PDF 텍스트 추출
 - `lib/legal-api/` — 국가법령정보센터 API 클라이언트 + 캐시
-- `lib/analysis/` — Claude API 분석 엔진
+- `lib/analysis/` — OpenAI API 분석 엔진
 
 ## 파이프라인 설계
 
@@ -22,7 +22,7 @@ model: opus
   → [OCR] 텍스트 추출
   → [분류기] 계약서 유형 감지 (주거/근로/웨딩/인테리어/프리랜서)
   → [법령 API] 유형별 관련 법령 조항 로드
-  → [Claude API] 조항별 분석 (법령 조항 시스템 프롬프트에 포함)
+  → [OpenAI API] 조항별 분석 (법령 조항 시스템 프롬프트에 포함)
   → [파서] JSON 결과 구조화
   → [저장] Supabase analysis_results
 ```
@@ -34,7 +34,7 @@ model: opus
 - PDF: `pdf-parse` 라이브러리로 직접 텍스트 추출 (OCR 불필요)
 - 주민번호 패턴 감지 시 즉시 마스킹 (`\d{6}-\d{7}` → `######-#######`)
 
-**Claude API 프롬프트 전략:**
+**OpenAI API 프롬프트 전략:**
 - 시스템 프롬프트에 관련 법령 조항 전문을 직접 삽입 (환각 방지, 최신 법 기준 보장)
 - 구조화된 JSON 출력 요구 (`tool_use` 또는 지시형 JSON 형식)
 - 각 분석 항목에 `legal_basis` 필드 필수 포함
@@ -77,7 +77,7 @@ model: opus
 
 - OCR 실패 (저해상도): `ocr_failed` 상태 기록, 사용자에게 재업로드 요청
 - 법령 API 타임아웃: 캐시된 데이터로 폴백, 결과에 "법령 확인 권장" 메모 추가
-- Claude API 오류: 1회 재시도, 재실패 시 `analysis_failed` 상태 기록
+- OpenAI API 오류: 1회 재시도, 재실패 시 규칙 기반 결과로 폴백하고 `analysis_failed` 상태 기록
 
 ## 이전 산출물 처리
 
