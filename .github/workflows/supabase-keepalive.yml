@@ -1,0 +1,45 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # Runs every 5 days at 03:00 KST. GitHub cron uses UTC.
+    - cron: "0 18 */5 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Ping Supabase REST API
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Validate required secrets
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "Missing repository secret: NEXT_PUBLIC_SUPABASE_URL"
+            exit 1
+          fi
+
+          if [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "Missing repository secret: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+            exit 1
+          fi
+
+      - name: Send keepalive request
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          curl --fail --silent --show-error --max-time 20 \
+            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            --header "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY" \
+            "$SUPABASE_URL/rest/v1/" \
+            > /dev/null
+
+          echo "Supabase keepalive ping completed."
