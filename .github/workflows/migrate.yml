@@ -13,18 +13,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check secret is set
-        run: |
-          if [ -z "${{ secrets.SUPABASE_DB_URL }}" ]; then
-            echo "❌ SUPABASE_DB_URL secret is empty or not set!"
-            exit 1
-          else
-            echo "✅ SUPABASE_DB_URL secret is set"
-          fi
-
       - name: Run migrations via psql
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DATABASE_URL: "postgresql://postgres.${{ secrets.SUPABASE_PROJECT_REF }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres"
         run: |
           echo "Running migrations..."
           for f in $(ls supabase/migrations/*.sql | sort); do
