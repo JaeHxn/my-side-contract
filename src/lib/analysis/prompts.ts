@@ -2,6 +2,7 @@ import type { ContractCategory } from "../contracts/types";
 
 export const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 export const DEFAULT_OPENAI_ANALYSIS_MODEL = "gpt-5.4-mini";
+export const DEFAULT_OPENAI_OCR_MODEL = "gpt-4o";
 export const MAX_AI_CONTRACT_TEXT_CHARS = 6000;
 
 interface CategoryPromptProfile {

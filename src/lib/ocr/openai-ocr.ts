@@ -1,4 +1,4 @@
-import { DEFAULT_OPENAI_ANALYSIS_MODEL, OPENAI_RESPONSES_URL } from "@/src/lib/analysis/prompts";
+import { DEFAULT_OPENAI_OCR_MODEL, OPENAI_RESPONSES_URL } from "@/src/lib/analysis/prompts";
 
 export const MAX_OCR_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -101,7 +101,7 @@ async function callOpenAiForOcr(input: OcrFileInput, apiKey: string): Promise<st
     },
     body: JSON.stringify({
       model: getOpenAiOcrModel(),
-      max_output_tokens: 6000,
+      max_output_tokens: 16000,
       input: [
         {
           role: "user",
@@ -109,13 +109,7 @@ async function callOpenAiForOcr(input: OcrFileInput, apiKey: string): Promise<st
             buildOcrContent(input),
             {
               type: "input_text",
-              text: [
-                "이 파일은 한국어 계약서 PDF 또는 사진입니다.",
-                "계약서 원문 텍스트만 OCR로 추출하세요.",
-                "요약, 설명, 법률 의견, 마크다운 제목을 붙이지 마세요.",
-                "조항 번호, 금액, 날짜, 주소, 특약 문구는 보이는 그대로 최대한 보존하세요.",
-                "읽기 어려운 부분은 [판독불가]로 표시하세요."
-              ].join("\n")
+              text: OCR_PROMPT
             }
           ]
         }
@@ -172,8 +166,23 @@ function normalizeMimeType(mimeType: string, fileName: string): string {
   return "application/octet-stream";
 }
 
+const OCR_PROMPT = [
+  "이 파일은 한국어 계약서 PDF 또는 사진입니다.",
+  "계약서에 있는 텍스트를 처음부터 끝까지 빠짐없이 추출하세요.",
+  "",
+  "[추출 지침]",
+  "- 조항 번호(제1조, 1항, ①②③ 등), 금액(₩·원·만원), 날짜(년·월·일), 주소, 특약 사항은 원문 그대로 보존하세요.",
+  "- 표(table) 안의 내용도 모두 추출하고, 셀 구분은 공백이나 줄바꿈으로 표시하세요.",
+  "- 인감 도장·서명이 텍스트 위에 겹쳐 있어도 아래 텍스트를 최대한 읽어주세요.",
+  "- 손으로 쓴 문구(특약, 날짜, 금액 수정 등)는 [수기: 내용] 형식으로 포함하세요.",
+  "- 사진이 기울어져 있거나 흐릿해도 읽을 수 있는 내용은 최대한 추출하세요.",
+  "- 읽기 어려운 부분은 [판독불가]로 표시하고, 앞뒤 맥락은 유지하세요.",
+  "- 요약, 법률 의견, 마크다운 헤더(#), 설명 문장을 붙이지 마세요. 계약서 원문만 출력하세요.",
+  "- 여러 페이지면 페이지 순서대로 이어서 출력하세요."
+].join("\n");
+
 function getOpenAiOcrModel() {
-  return process.env.OPENAI_OCR_MODEL?.trim() || process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_ANALYSIS_MODEL;
+  return process.env.OPENAI_OCR_MODEL?.trim() || DEFAULT_OPENAI_OCR_MODEL;
 }
 
 interface OpenAiResponsesPayload {
