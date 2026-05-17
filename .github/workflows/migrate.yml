@@ -15,10 +15,10 @@ jobs:
 
       - name: Run migrations via psql
         env:
-          PGHOST: aws-0-ap-south-1.pooler.supabase.com
-          PGPORT: "6543"
+          PGHOST: db.${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co
+          PGPORT: "5432"
           PGDATABASE: postgres
-          PGUSER: postgres.${{ secrets.SUPABASE_PROJECT_REF }}
+          PGUSER: postgres
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           PGSSLMODE: require
         run: |
