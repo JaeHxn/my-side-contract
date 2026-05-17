@@ -22,6 +22,13 @@ const activeRow = {
   result_id: null
 };
 
+const supabaseOffsetRow = {
+  ...activeRow,
+  issued_at: "2026-05-17T00:00:00+00:00",
+  expires_at: "2026-06-16T00:00:00+00:00",
+  used_at: "2026-05-18T00:00:00+00:00"
+};
+
 function createClient(overrides: Partial<SupabaseRestClient> = {}): SupabaseRestClient {
   return {
     selectMany: vi.fn(),
@@ -111,6 +118,32 @@ describe("createAnalysisAccessCode", () => {
 
     expect(accessCode.code).toBe("222222");
     expect(codeGenerator).toHaveBeenCalledTimes(2);
+  });
+
+  it("accepts Supabase timestamptz offset strings in returned rows", async () => {
+    const client = createClient({
+      selectOne: mockSelectOne(async () => null),
+      upsertOne: mockUpsertOne(async (_table, row) => ({
+        ...row,
+        issued_at: "2026-05-17T00:00:00+00:00",
+        expires_at: "2026-06-16T00:00:00+00:00"
+      }))
+    });
+
+    const accessCode = await createAnalysisAccessCode(
+      {},
+      {
+        client,
+        now: issuedAt,
+        codeGenerator: () => "123456"
+      }
+    );
+
+    expect(accessCode).toMatchObject({
+      code: "123456",
+      issuedAt: "2026-05-17T00:00:00+00:00",
+      expiresAt: "2026-06-16T00:00:00+00:00"
+    });
   });
 
   it("rejects invalid ttl values before persistence", async () => {
@@ -209,7 +242,7 @@ describe("markAnalysisAccessCodeUsed", () => {
 describe("listAnalysisAccessCodes", () => {
   it("lists recent codes with optional status filtering", async () => {
     const client = createClient({
-      selectMany: mockSelectMany(async () => [activeRow, { ...activeRow, code: "222222", status: "used" }])
+      selectMany: mockSelectMany(async () => [supabaseOffsetRow, { ...activeRow, code: "222222", status: "used" }])
     });
 
     const accessCodes = await listAnalysisAccessCodes({ status: "active", limit: 20 }, { client });

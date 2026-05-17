@@ -8,6 +8,7 @@ const ACCESS_CODE_SELECT =
 const SIX_DIGIT_CODE_PATTERN = /^\d{6}$/;
 
 const accessCodeStatusSchema = z.enum(["active", "used", "expired", "revoked"]);
+const supabaseTimestampSchema = z.string().datetime({ offset: true });
 
 const accessCodeRowSchema = z.object({
   code: z.string().regex(SIX_DIGIT_CODE_PATTERN),
@@ -15,9 +16,9 @@ const accessCodeRowSchema = z.object({
   buyer_name: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   memo: z.string().nullable().optional(),
-  issued_at: z.string().datetime(),
-  expires_at: z.string().datetime(),
-  used_at: z.string().datetime().nullable().optional(),
+  issued_at: supabaseTimestampSchema,
+  expires_at: supabaseTimestampSchema,
+  used_at: supabaseTimestampSchema.nullable().optional(),
   result_id: z.string().nullable().optional()
 });
 
