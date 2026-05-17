@@ -17,6 +17,23 @@ type AnalysisResponse = {
   error?: string;
 };
 
+type OcrResponse = {
+  text?: string;
+  fileName?: string;
+  mimeType?: string;
+  characterCount?: number;
+  warnings?: Array<{
+    message?: string;
+  }>;
+  message?: string;
+  error?: string;
+};
+
+const acceptedUploadTypes = ".txt,.md,.text,.pdf,.png,.jpg,.jpeg,.webp";
+const textFileExtensions = [".txt", ".md", ".text"];
+const ocrFileExtensions = [".pdf", ".png", ".jpg", ".jpeg", ".webp"];
+const ocrMimeTypes = new Set(["application/pdf", "image/png", "image/jpeg", "image/webp"]);
+
 const categories: Array<{
   value: ContractCategory;
   label: string;
@@ -34,29 +51,76 @@ const sampleContract = `제1조 보증금은 계약 종료와 목적물 인도 �
 제3조 모든 수리 및 하자 보수 비용은 임차인이 부담한다.
 제4조 임대인은 필요 시 임차인의 사전 동의 없이 방문할 수 있다.`;
 
+function getFileExtension(fileName: string) {
+  const match = /\.[^.]+$/.exec(fileName.toLowerCase());
+  return match?.[0] || "";
+}
+
+function getUploadKind(file: File): "text" | "ocr" | null {
+  const extension = getFileExtension(file.name);
+
+  if (textFileExtensions.includes(extension)) {
+    return "text";
+  }
+
+  if (ocrFileExtensions.includes(extension)) {
+    return "ocr";
+  }
+
+  if (!extension && file.type.startsWith("text/")) {
+    return "text";
+  }
+
+  if (!extension && ocrMimeTypes.has(file.type)) {
+    return "ocr";
+  }
+
+  return null;
+}
+
 export function UploadAnalyzer() {
   const [category, setCategory] = useState<ContractCategory>("housing-lease");
   const [contractText, setContractText] = useState("");
   const [accessCode, setAccessCode] = useState("");
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState("");
+  const [ocrWarning, setOcrWarning] = useState("");
   const [saveWarning, setSaveWarning] = useState("");
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<ContractAnalysisResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isOcrProcessing, setIsOcrProcessing] = useState(false);
 
   const characterCount = useMemo(() => contractText.trim().length, [contractText]);
-  const canSubmit = characterCount >= 30 && /^\d{6}$/.test(accessCode.trim()) && !isSubmitting;
+  const canSubmit = characterCount >= 30 && /^\d{6}$/.test(accessCode.trim()) && !isSubmitting && !isOcrProcessing;
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
     const file = event.target.files?.[0];
 
     if (!file) {
       return;
     }
 
+    const uploadKind = getUploadKind(file);
+
+    if (!uploadKind) {
+      setError("지원하지 않는 파일 형식입니다. TXT, MD, PDF, PNG, JPG, JPEG, WEBP 파일을 업로드해 주세요.");
+      setOcrWarning("");
+      input.value = "";
+      return;
+    }
+
+    if (uploadKind === "ocr") {
+      await handleOcrUpload(file);
+      input.value = "";
+      return;
+    }
+
     if (file.size > 240_000) {
       setError("텍스트 파일은 240KB 이하만 업로드할 수 있습니다.");
+      setOcrWarning("");
+      input.value = "";
       return;
     }
 
@@ -65,8 +129,51 @@ export function UploadAnalyzer() {
       setContractText(text.slice(0, 50000));
       setFileName(file.name);
       setError("");
+      setOcrWarning("");
     } catch {
       setError("파일을 읽지 못했습니다. 계약서 내용을 직접 붙여넣어 주세요.");
+      setOcrWarning("");
+    } finally {
+      input.value = "";
+    }
+  }
+
+  async function handleOcrUpload(file: File) {
+    setIsOcrProcessing(true);
+    setError("");
+    setOcrWarning("");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("/api/ocr", {
+        method: "POST",
+        body: formData
+      });
+      const payload = (await response.json().catch(() => ({}))) as OcrResponse;
+
+      if (!response.ok) {
+        throw new Error(payload.message || payload.error || "OCR 요청을 처리하지 못했습니다.");
+      }
+
+      if (!payload.text?.trim()) {
+        throw new Error("OCR 결과에서 읽을 수 있는 텍스트를 찾지 못했습니다. 더 선명한 파일을 올리거나 직접 입력해 주세요.");
+      }
+
+      setContractText(payload.text.slice(0, 50000));
+      setFileName(payload.fileName || file.name);
+      setError("");
+      setOcrWarning(payload.warnings?.map((warning) => warning.message).filter(Boolean).join(" ") || "");
+    } catch (caughtError) {
+      setOcrWarning("");
+      if (caughtError instanceof TypeError) {
+        setError("OCR 서버와 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      } else {
+        setError(caughtError instanceof Error ? caughtError.message : "OCR 처리 중 오류가 발생했습니다.");
+      }
+    } finally {
+      setIsOcrProcessing(false);
     }
   }
 
@@ -74,6 +181,15 @@ export function UploadAnalyzer() {
     event.preventDefault();
     const trimmedText = contractText.trim();
     const trimmedCode = accessCode.trim();
+
+    if (isOcrProcessing) {
+      setError("OCR 처리 중입니다. 텍스트 추출이 끝난 뒤 분석해 주세요.");
+      return;
+    }
+
+    if (isSubmitting) {
+      return;
+    }
 
     if (trimmedText.length < 30) {
       setError("계약서 내용을 30자 이상 입력해 주세요.");
@@ -191,22 +307,44 @@ export function UploadAnalyzer() {
             <label className="mb-2 block text-sm font-bold text-ink" htmlFor="contractText">
               계약서 내용
             </label>
-            <label className="mb-3 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-dashed border-sage/35 bg-sage/8 p-4 transition hover:bg-sage/12">
+            <label
+              aria-busy={isOcrProcessing}
+              className={[
+                "mb-3 flex items-center justify-between gap-3 rounded-lg border border-dashed border-sage/35 bg-sage/8 p-4 transition",
+                isOcrProcessing ? "cursor-wait opacity-75" : "cursor-pointer hover:bg-sage/12"
+              ].join(" ")}
+            >
               <span className="flex min-w-0 items-center gap-3">
                 <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sage">
                   <UploadCloud aria-hidden="true" className="h-5 w-5" />
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-bold text-ink">
-                    {fileName || "텍스트 파일 업로드"}
+                    {isOcrProcessing ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                        OCR 텍스트 추출 중
+                      </span>
+                    ) : (
+                      fileName || "계약서 파일 업로드"
+                    )}
                   </span>
-                  <span className="block text-xs leading-5 text-ink/55">PDF/사진 OCR은 다음 단계에서 지원됩니다.</span>
+                  <span className="block text-xs leading-5 text-ink/55">
+                    TXT/MD는 바로 읽고, PDF/사진은 OCR로 텍스트를 추출합니다.
+                  </span>
                 </span>
               </span>
-              <input accept=".txt,.md,.text" className="sr-only" onChange={handleFileChange} type="file" />
+              <input
+                accept={acceptedUploadTypes}
+                className="sr-only"
+                disabled={isOcrProcessing}
+                onChange={handleFileChange}
+                type="file"
+              />
             </label>
             <textarea
               className="min-h-[280px] w-full resize-y rounded-lg border border-ink/10 bg-paper/70 p-4 text-base leading-7 text-ink outline-none transition placeholder:text-ink/35 focus:border-sage focus:bg-white focus:ring-4 focus:ring-sage/12"
+              disabled={isOcrProcessing}
               id="contractText"
               maxLength={50000}
               onChange={(event) => setContractText(event.target.value)}
@@ -217,10 +355,12 @@ export function UploadAnalyzer() {
               <span>{characterCount.toLocaleString("ko-KR")} / 50,000자</span>
               <button
                 className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white px-3 py-1.5 text-ink transition hover:border-sage/35 hover:text-sage"
+                disabled={isOcrProcessing}
                 onClick={() => {
                   setContractText(sampleContract);
                   setFileName("");
                   setError("");
+                  setOcrWarning("");
                 }}
                 type="button"
               >
@@ -250,13 +390,23 @@ export function UploadAnalyzer() {
               {error}
             </div>
           )}
+          {ocrWarning && (
+            <div className="mb-5 rounded-lg border border-warn/25 bg-warn/10 p-3 text-sm font-semibold leading-6 text-ink">
+              {ocrWarning}
+            </div>
+          )}
 
           <button
             className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-5 py-4 text-base font-black text-paper shadow-lg shadow-ink/15 transition hover:bg-sage disabled:cursor-not-allowed disabled:bg-ink/35 sm:w-auto"
             disabled={!canSubmit}
             type="submit"
           >
-            {isSubmitting ? (
+            {isOcrProcessing ? (
+              <>
+                <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />
+                OCR 처리 중
+              </>
+            ) : isSubmitting ? (
               <>
                 <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />
                 분석 중

@@ -12,7 +12,7 @@
 
 ## 현재 진행도
 
-제품 MVP 100% 기준 약 45%.
+제품 MVP 100% 기준 약 55%.
 
 ## 완료된 것
 
@@ -33,13 +33,16 @@
 - 관리자 코드 발급 API `POST /api/admin/access-codes`
 - Supabase 분석 코드 저장 migration `analysis_access_codes`
 - 코드 만료/사용 처리 서버 경계
+- PDF/사진 OCR 업로드 API `POST /api/ocr`
+- 업로드 화면 PDF/사진 OCR 연동
+- OCR 추출 텍스트 검토 후 분석 제출 흐름
 - Supabase migration `contract_analysis_results`
 - Supabase 무료 플랜 keepalive GitHub Actions
 - 테스트/타입/빌드 검증 통과
 
 ## 마지막 검증
 
-- `npm test`: 14 files, 47 tests passed
+- `npm test`: 16 files, 56 tests passed
 - `npx tsc --noEmit --incremental false`: passed
 - `npm run build`: passed
 - 화면 확인:
@@ -62,8 +65,11 @@
 5. 코드 사용 처리 원자성 강화:
    - 현재 서버 경계에서 사용 처리한다.
    - 동시 제출 방지는 DB 함수/RPC 또는 조건부 업데이트가 필요하다.
-6. 관리자 코드 목록/취소/재발송 화면
-7. PDF/이미지 OCR
+6. OCR 운영 보강:
+   - 파일 매직바이트 검증
+   - PDF 페이지 수 제한
+   - OCR 요청 rate limit/timeout
+7. 관리자 코드 목록/취소/재발송 화면
 8. SMS 발송 연동
 9. 법령 API 실키/캐시 연동
 10. 분석 결과 공유 토큰 또는 사용자 인증
