@@ -5,7 +5,7 @@ import { enabledCategories } from "@/src/lib/contracts/categories";
 import { getAccessCodeAllowlist, verifyAccessCode } from "@/src/lib/payments/access-code";
 import { markAnalysisAccessCodeUsed, verifyAnalysisAccessCode } from "@/src/lib/server/access-codes";
 import { ResultValidationError, saveContractAnalysisResult } from "@/src/lib/server/results";
-import { SupabaseConfigError } from "@/src/lib/supabase/server";
+import { SupabaseConfigError, SupabaseRequestError } from "@/src/lib/supabase/server";
 
 const analysisRequestSchema = z.object({
   contractText: z.string().trim().min(30, "계약서 내용은 최소 30자 이상 입력해주세요.").max(50000),
@@ -83,7 +83,7 @@ async function verifySubmittedAccessCode(accessCode: string) {
   try {
     return await verifyAnalysisAccessCode(accessCode);
   } catch (error) {
-    if (error instanceof SupabaseConfigError) {
+    if (isDevelopmentSupabaseSetupError(error)) {
       return verifyAccessCode(accessCode, getAccessCodeAllowlist());
     }
 
@@ -97,6 +97,22 @@ async function markAnalysisCodeUsed(accessCode: string, resultId: string) {
   } catch {
     // The analysis result has already been saved. Keep the user flow intact and let admin reconcile the code later.
   }
+}
+
+function isDevelopmentSupabaseSetupError(error: unknown): boolean {
+  if (process.env.NODE_ENV === "production") {
+    return error instanceof SupabaseConfigError;
+  }
+
+  if (error instanceof SupabaseConfigError) {
+    return true;
+  }
+
+  if (error instanceof SupabaseRequestError) {
+    return error.status === 401 || error.status === 404;
+  }
+
+  return false;
 }
 
 function jsonNoStore(body: unknown, status = 200) {

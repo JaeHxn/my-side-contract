@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AccessCodeValidationError, createAnalysisAccessCode } from "@/src/lib/server/access-codes";
+import { SupabaseConfigError, SupabaseRequestError } from "@/src/lib/supabase/server";
 
 const ADMIN_ACCESS_TOKEN_ENV = "ADMIN_ACCESS_TOKEN";
 
@@ -49,6 +50,32 @@ export async function POST(request: Request) {
       );
     }
 
+    if (isDevelopmentSupabaseSetupError(error)) {
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + parsed.data.ttlDays * 24 * 60 * 60 * 1000);
+
+      return jsonNoStore(
+        {
+          accessCode: {
+            code: "123456",
+            status: "active",
+            buyerName: parsed.data.buyerName || null,
+            phone: parsed.data.phone || null,
+            memo: parsed.data.memo || "로컬 테스트용 코드입니다. Supabase migration 적용 후 실제 코드가 발급됩니다.",
+            issuedAt: now.toISOString(),
+            expiresAt: expiresAt.toISOString(),
+            usedAt: null,
+            resultId: null
+          },
+          warning: {
+            code: "LOCAL_DEMO_CODE",
+            message: "Supabase 설정 또는 migration이 준비되지 않아 로컬 테스트 코드 123456을 표시합니다."
+          }
+        },
+        201
+      );
+    }
+
     return jsonNoStore(
       {
         error: "ACCESS_CODE_CREATE_FAILED",
@@ -70,6 +97,22 @@ function isAuthorizedAdminRequest(request: Request): boolean {
   const headerToken = request.headers.get("x-admin-token") || "";
 
   return authorization === `Bearer ${token}` || headerToken === token;
+}
+
+function isDevelopmentSupabaseSetupError(error: unknown): boolean {
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
+
+  if (error instanceof SupabaseConfigError) {
+    return true;
+  }
+
+  if (error instanceof SupabaseRequestError) {
+    return error.status === 401 || error.status === 404;
+  }
+
+  return false;
 }
 
 function jsonNoStore(body: unknown, status = 200) {

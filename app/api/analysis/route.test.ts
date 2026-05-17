@@ -3,6 +3,7 @@ import type { ContractAnalysisResult } from "@/src/lib/contracts/types";
 import { analyzeContract } from "@/src/lib/analysis/service";
 import { markAnalysisAccessCodeUsed, verifyAnalysisAccessCode } from "@/src/lib/server/access-codes";
 import { saveContractAnalysisResult } from "@/src/lib/server/results";
+import { SupabaseRequestError } from "@/src/lib/supabase/server";
 import { POST } from "./route";
 
 vi.mock("@/src/lib/analysis/service", () => ({
@@ -144,5 +145,38 @@ describe("POST /api/analysis", () => {
     expect(analyzeContract).not.toHaveBeenCalled();
     expect(saveContractAnalysisResult).not.toHaveBeenCalled();
     expect(markAnalysisAccessCodeUsed).not.toHaveBeenCalled();
+  });
+
+  it("uses the development fallback code when Supabase access-code storage is not ready", async () => {
+    const storedResult = {
+      id: "analysis-route123",
+      category: "housing-lease" as const,
+      provider: "rule-based" as const,
+      overallRisk: "low" as const,
+      createdAt: "2026-05-17T00:00:00.000Z",
+      analysis: sampleAnalysis
+    };
+
+    vi.mocked(verifyAnalysisAccessCode).mockRejectedValue(new SupabaseRequestError("table missing", 404));
+    vi.mocked(analyzeContract).mockResolvedValue(sampleAnalysis);
+    vi.mocked(saveContractAnalysisResult).mockResolvedValue(storedResult);
+
+    const response = await POST(
+      new Request("http://localhost/api/analysis", {
+        method: "POST",
+        body: JSON.stringify({
+          contractText: validContractText,
+          category: "housing-lease",
+          accessCode: "123456"
+        })
+      })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      analysis: sampleAnalysis,
+      resultUrl: "/result/analysis-route123"
+    });
+    expect(response.status).toBe(200);
+    expect(analyzeContract).toHaveBeenCalledOnce();
   });
 });

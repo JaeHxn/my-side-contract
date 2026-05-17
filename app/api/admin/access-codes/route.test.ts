@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAnalysisAccessCode } from "@/src/lib/server/access-codes";
+import { SupabaseRequestError } from "@/src/lib/supabase/server";
 import { POST } from "./route";
 
 vi.mock("@/src/lib/server/access-codes", async (importOriginal) => {
@@ -95,5 +96,27 @@ describe("POST /api/admin/access-codes", () => {
     );
 
     expect(authorizedResponse.status).toBe(201);
+  });
+
+  it("returns the local demo code when Supabase is not ready in development", async () => {
+    vi.mocked(createAnalysisAccessCode).mockRejectedValue(new SupabaseRequestError("table missing", 404));
+
+    const response = await POST(
+      new Request("http://localhost/api/admin/access-codes", {
+        method: "POST",
+        body: JSON.stringify({ ttlDays: 30 })
+      })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      accessCode: {
+        code: "123456",
+        status: "active"
+      },
+      warning: {
+        code: "LOCAL_DEMO_CODE"
+      }
+    });
+    expect(response.status).toBe(201);
   });
 });
