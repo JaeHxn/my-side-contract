@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - "supabase/migrations/**"
-  workflow_dispatch:   # 수동 실행 가능
+  workflow_dispatch: # 수동 실행 가능
 
 jobs:
   migrate:
@@ -13,10 +13,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      - name: Check secret is set
+        run: |
+          if [ -z "${{ secrets.SUPABASE_DB_URL }}" ]; then
+            echo "❌ SUPABASE_DB_URL secret is empty or not set!"
+            exit 1
+          else
+            echo "✅ SUPABASE_DB_URL secret is set"
+          fi
 
-      - name: Run migrations
-        run: npx supabase db push --db-url "${{ secrets.SUPABASE_DB_URL }}"
+      - name: Run migrations via psql
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          echo "Running migrations..."
+          for f in $(ls supabase/migrations/*.sql | sort); do
+            echo "→ $f"
+            psql "$DATABASE_URL" -f "$f" -v ON_ERROR_STOP=1
+          done
+          echo "✅ All migrations complete"
