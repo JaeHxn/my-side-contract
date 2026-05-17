@@ -40,6 +40,7 @@ const sampleAnalysis: ContractAnalysisResult = {
 
 function createClient(overrides: Partial<SupabaseRestClient> = {}): SupabaseRestClient {
   return {
+    selectMany: vi.fn(),
     selectOne: vi.fn(),
     upsertOne: vi.fn(),
     ...overrides

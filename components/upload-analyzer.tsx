@@ -40,16 +40,59 @@ const categories: Array<{
   enabled: boolean;
 }> = [
   { value: "housing-lease", label: "전월세", enabled: true },
-  { value: "labor", label: "근로", enabled: false },
+  { value: "labor", label: "근로", enabled: true },
   { value: "wedding", label: "웨딩", enabled: false },
-  { value: "interior", label: "인테리어", enabled: false },
-  { value: "freelance", label: "프리랜서", enabled: false }
+  { value: "interior", label: "인테리어", enabled: true },
+  { value: "freelance", label: "프리랜서", enabled: true }
 ];
 
-const sampleContract = `제1조 보증금은 계약 종료와 목적물 인도 후 임대인이 반환한다.
+const categoryDescriptions: Record<ContractCategory, { badge: string; headline: string; description: string }> = {
+  "housing-lease": {
+    badge: "전월세 계약서 분석",
+    headline: "계약서 내용을 넣고 위험 조항을 바로 확인하세요",
+    description: "전월세 계약서의 불리한 문구, 법령 근거, 빠진 조항을 쉬운 말로 정리합니다."
+  },
+  labor: {
+    badge: "근로 계약서 분석",
+    headline: "내 근로조건이 법에 맞는지 즉시 확인하세요",
+    description: "근로기준법 위반 조항, 포괄임금 함정, 빠진 필수 조항을 한눈에 확인합니다."
+  },
+  wedding: {
+    badge: "웨딩 계약서 분석",
+    headline: "웨딩 계약의 숨은 조항을 확인하세요",
+    description: "웨딩 계약서의 위약금, 환불 조건, 불공정 조항을 점검합니다."
+  },
+  interior: {
+    badge: "인테리어 계약서 분석",
+    headline: "공사 계약 전에 불리한 조항을 잡아내세요",
+    description: "인테리어 도급계약의 공사비 구조, 하자보수 책임, 자재 명세 누락을 점검합니다."
+  },
+  freelance: {
+    badge: "프리랜서 계약서 분석",
+    headline: "저작권과 대금 조항, 서명 전에 꼭 확인하세요",
+    description: "프리랜서 용역계약의 저작권 귀속, 무제한 수정, 지연 지급 함정을 찾아냅니다."
+  }
+};
+
+const sampleContracts: Partial<Record<ContractCategory, string>> = {
+  "housing-lease": `제1조 보증금은 계약 종료와 목적물 인도 후 임대인이 반환한다.
 제2조 임차인은 계약갱신요구권을 포기하며, 임대인은 갱신을 거절할 수 있다.
 제3조 모든 수리 및 하자 보수 비용은 임차인이 부담한다.
-제4조 임대인은 필요 시 임차인의 사전 동의 없이 방문할 수 있다.`;
+제4조 임대인은 필요 시 임차인의 사전 동의 없이 방문할 수 있다.`,
+  labor: `근로계약서
+제1조 근로자는 회사가 정한 모든 연장근로와 휴일근로에 동의하며, 월급에는 포괄임금으로 모든 수당이 포함된다.
+제2조 회사는 업무상 필요가 있으면 별도 동의 없이 근무시간을 변경할 수 있고, 연장근로수당은 따로 지급하지 않는다.
+제3조 업무가 바쁜 날에는 휴게시간을 제공하지 않을 수 있으며, 근로자는 이에 이의를 제기하지 않는다.
+제4조 근로자가 사전 승인 없이 퇴사하면 회사에 위약금 300만 원을 지급한다.`,
+  interior: `제1조 공사대금 전액(3,000만원)은 계약 체결 즉시 선불로 지급하며, 시공사는 이를 계약 성립의 조건으로 한다.
+제2조 공사 기간은 시공사 내부 일정에 따르며, 발주자는 이에 이의를 제기하지 않는다.
+제3조 공사 완료 후 발생하는 모든 하자에 대한 책임은 발주자가 부담한다.
+제4조 발주자는 공사 현장 촬영 및 제3자 감리를 요청할 수 없으며, 자재 변경은 시공사가 임의로 결정한다.`,
+  freelance: `제1조 수급인이 본 계약에 따라 제작한 모든 결과물의 저작권은 계약 즉시 자동으로 발주자에게 귀속되며, 수급인은 어떠한 권리도 주장할 수 없다.
+제2조 수급인은 발주자의 요청이 있으면 횟수 제한 없이 수정해야 하며, 이에 대한 추가 비용을 청구할 수 없다.
+제3조 용역대금은 최종 결과물에 대한 발주자의 만족도 확인 후 90일 이내에 지급한다.
+제4조 수급인은 계약 기간 동안 발주자의 사전 서면 동의 없이 다른 모든 외부 활동 및 부업을 할 수 없다.`
+};
 
 function getFileExtension(fileName: string) {
   const match = /\.[^.]+$/.exec(fileName.toLowerCase());
@@ -92,6 +135,7 @@ export function UploadAnalyzer() {
   const [isOcrProcessing, setIsOcrProcessing] = useState(false);
 
   const characterCount = useMemo(() => contractText.trim().length, [contractText]);
+  const activeCategoryInfo = categoryDescriptions[category];
   const canSubmit = characterCount >= 30 && /^\d{6}$/.test(accessCode.trim()) && !isSubmitting && !isOcrProcessing;
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -245,29 +289,39 @@ export function UploadAnalyzer() {
   return (
     <div className="mx-auto grid max-w-6xl gap-8 px-5 py-6 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:px-8 lg:py-10">
       <aside className="lg:sticky lg:top-6 lg:self-start">
-        <div className="rounded-lg border border-ink/10 bg-white/86 p-5 shadow-panel sm:p-6">
-          <p className="mb-3 inline-flex items-center rounded-full border border-sage/20 bg-sage/10 px-3 py-1 text-sm font-bold text-sage">
-            MVP 주거 계약서 분석
-          </p>
-          <h1 className="text-balance text-3xl font-black leading-tight text-ink sm:text-4xl">
-            계약서 내용을 넣고 위험 조항을 바로 확인하세요
-          </h1>
-          <p className="mt-4 text-base leading-7 text-ink/68">
-            전월세 계약서의 불리한 문구, 법령 근거, 빠진 조항을 쉬운 말로 정리합니다.
-          </p>
+        <div className="relative overflow-hidden rounded-2xl border border-ink/10 bg-gradient-to-br from-white via-white to-sage/5 p-6 shadow-panel sm:p-7">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-sage/8 blur-3xl" />
+          <div aria-hidden="true" className="pointer-events-none absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-brass/8 blur-3xl" />
 
-          <div className="mt-6 grid grid-cols-3 gap-2 text-center text-sm font-bold">
-            <div className="rounded-lg border border-ink/10 bg-paper p-3">
-              <p className="text-2xl font-black text-danger">위험</p>
-              <p className="mt-1 text-ink/55">불법 가능</p>
-            </div>
-            <div className="rounded-lg border border-ink/10 bg-paper p-3">
-              <p className="text-2xl font-black text-warn">주의</p>
-              <p className="mt-1 text-ink/55">수정 권고</p>
-            </div>
-            <div className="rounded-lg border border-ink/10 bg-paper p-3">
-              <p className="text-2xl font-black text-safe">누락</p>
-              <p className="mt-1 text-ink/55">보완 필요</p>
+          <div className="relative">
+            <p className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-sage/25 bg-sage/12 px-3 py-1 text-xs font-bold uppercase tracking-wider text-sage">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-sage" />
+              {activeCategoryInfo.badge}
+            </p>
+            <h1 className="text-balance text-3xl font-black leading-[1.15] tracking-tight text-ink sm:text-4xl">
+              {activeCategoryInfo.headline}
+            </h1>
+            <p className="mt-4 text-base leading-7 text-ink/65">
+              {activeCategoryInfo.description}
+            </p>
+
+            <div className="mt-6 grid grid-cols-4 gap-2 text-center text-xs font-bold">
+              <div className="rounded-xl border border-danger/15 bg-danger/5 p-3">
+                <p className="text-xl font-black leading-none text-danger">위험</p>
+                <p className="mt-1.5 leading-tight text-ink/55">불법 가능</p>
+              </div>
+              <div className="rounded-xl border border-warn/15 bg-warn/5 p-3">
+                <p className="text-xl font-black leading-none text-warn">주의</p>
+                <p className="mt-1.5 leading-tight text-ink/55">수정 권고</p>
+              </div>
+              <div className="rounded-xl border border-safe/15 bg-safe/5 p-3">
+                <p className="text-xl font-black leading-none text-safe">정상</p>
+                <p className="mt-1.5 leading-tight text-ink/55">즉시 안전</p>
+              </div>
+              <div className="rounded-xl border border-ink/10 bg-ink/4 p-3">
+                <p className="text-xl font-black leading-none text-ink">누락</p>
+                <p className="mt-1.5 leading-tight text-ink/55">보완 필요</p>
+              </div>
             </div>
           </div>
         </div>
@@ -279,27 +333,42 @@ export function UploadAnalyzer() {
 
       <main className="space-y-6">
         <form className="rounded-lg border border-ink/10 bg-white p-4 shadow-panel sm:p-6" onSubmit={handleSubmit}>
-          <div className="mb-5">
-            <label className="mb-2 block text-sm font-bold text-ink">계약 유형</label>
+          <div className="mb-6">
+            <div className="mb-3 flex items-baseline justify-between">
+              <label className="block text-sm font-bold text-ink">계약 유형</label>
+              <span className="text-xs font-semibold text-ink/45">분석할 계약서를 선택하세요</span>
+            </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              {categories.map((option) => (
-                <button
-                  aria-pressed={category === option.value}
-                  className={[
-                    "rounded-lg border px-3 py-2 text-sm font-bold transition",
-                    category === option.value
-                      ? "border-sage bg-sage text-white"
-                      : "border-ink/10 bg-paper text-ink/65",
-                    option.enabled ? "hover:border-sage/50" : "cursor-not-allowed opacity-45"
-                  ].join(" ")}
-                  disabled={!option.enabled}
-                  key={option.value}
-                  onClick={() => setCategory(option.value)}
-                  type="button"
-                >
-                  {option.label}
-                </button>
-              ))}
+              {categories.map((option) => {
+                const isActive = category === option.value;
+                return (
+                  <button
+                    aria-pressed={isActive}
+                    className={[
+                      "group relative flex flex-col items-center justify-center rounded-xl border px-3 py-3 text-sm font-bold transition-all duration-200",
+                      isActive
+                        ? "border-sage bg-sage text-white shadow-md shadow-sage/25 ring-2 ring-sage/20"
+                        : "border-ink/10 bg-paper/60 text-ink/70",
+                      option.enabled
+                        ? !isActive && "hover:-translate-y-0.5 hover:border-sage/50 hover:bg-white hover:text-ink hover:shadow-sm"
+                        : "cursor-not-allowed opacity-50"
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    disabled={!option.enabled}
+                    key={option.value}
+                    onClick={() => setCategory(option.value)}
+                    type="button"
+                  >
+                    <span className="leading-tight">{option.label}</span>
+                    {!option.enabled && (
+                      <span className="mt-0.5 text-[10px] font-semibold tracking-wide text-ink/40">
+                        준비중
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -357,7 +426,7 @@ export function UploadAnalyzer() {
                 className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white px-3 py-1.5 text-ink transition hover:border-sage/35 hover:text-sage"
                 disabled={isOcrProcessing}
                 onClick={() => {
-                  setContractText(sampleContract);
+                  setContractText(sampleContracts[category] ?? sampleContracts["housing-lease"] ?? "");
                   setFileName("");
                   setError("");
                   setOcrWarning("");

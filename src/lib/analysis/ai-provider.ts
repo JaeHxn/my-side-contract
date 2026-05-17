@@ -1,4 +1,5 @@
 import type { ContractAnalysisResult } from "../contracts/types";
+import type { ContractCategory } from "../contracts/types";
 import { redactPii } from "../privacy/pii-redaction";
 import {
   buildContractAnalysisPrompt,
@@ -6,7 +7,11 @@ import {
   OPENAI_RESPONSES_URL
 } from "./prompts";
 
-export async function maybeEnhanceWithAi(analysis: ContractAnalysisResult, contractText: string) {
+export async function maybeEnhanceWithAi(
+  analysis: ContractAnalysisResult,
+  contractText: string,
+  category: ContractCategory = "housing-lease"
+) {
   if (process.env.DISABLE_AI_ANALYSIS === "true") {
     return analysis;
   }
@@ -17,7 +22,7 @@ export async function maybeEnhanceWithAi(analysis: ContractAnalysisResult, contr
   }
 
   try {
-    const note = await callOpenAi(contractText, apiKey);
+    const note = await callOpenAi(contractText, apiKey, category);
 
     return {
       ...analysis,
@@ -32,7 +37,7 @@ export async function maybeEnhanceWithAi(analysis: ContractAnalysisResult, contr
   }
 }
 
-async function callOpenAi(contractText: string, apiKey: string): Promise<string> {
+async function callOpenAi(contractText: string, apiKey: string, category: ContractCategory = "housing-lease"): Promise<string> {
   const { redactedText } = redactPii(contractText);
   const response = await fetch(OPENAI_RESPONSES_URL, {
     method: "POST",
@@ -43,7 +48,7 @@ async function callOpenAi(contractText: string, apiKey: string): Promise<string>
     body: JSON.stringify({
       model: getOpenAiModel(),
       max_output_tokens: 220,
-      input: buildContractAnalysisPrompt(redactedText)
+      input: buildContractAnalysisPrompt(redactedText, category)
     })
   });
 

@@ -12,7 +12,14 @@
 
 ## 현재 진행도
 
-제품 MVP 100% 기준 약 55%.
+제품 MVP 100% 기준 약 65%.
+
+## 현재 로컬 확인 URL
+
+- 메인: `http://127.0.0.1:3000`
+- 계약서 업로드/분석: `http://127.0.0.1:3000/upload`
+- 관리자 코드 발급/목록/취소: `http://127.0.0.1:3000/admin`
+- 로컬 테스트 분석 코드: `123456`
 
 ## 완료된 것
 
@@ -31,48 +38,60 @@
 - 결과 상세 화면 `/result/[id]`
 - 관리자 코드 발급 화면 `/admin`
 - 관리자 코드 발급 API `POST /api/admin/access-codes`
+- 관리자 코드 목록 UI 및 상태 필터
+- 관리자 코드 목록 API `GET /api/admin/access-codes`
+- 관리자 코드 취소 API `POST /api/admin/access-codes/revoke`
 - Supabase 분석 코드 저장 migration `analysis_access_codes`
+- Supabase 분석 코드 `revoked` 상태 migration
 - 코드 만료/사용 처리 서버 경계
 - PDF/사진 OCR 업로드 API `POST /api/ocr`
 - 업로드 화면 PDF/사진 OCR 연동
 - OCR 추출 텍스트 검토 후 분석 제출 흐름
+- 근로계약서 카테고리 활성화
+- 근로계약서 규칙 기반 분석
+- 근로기준법/최저임금법 기본 법령 근거
 - Supabase migration `contract_analysis_results`
 - Supabase 무료 플랜 keepalive GitHub Actions
 - 테스트/타입/빌드 검증 통과
+- 관리자 코드 관리 QA 매트릭스 `_workspace/contract-mvp/qa-admin-code-management.md`
 
 ## 마지막 검증
 
-- `npm test`: 16 files, 56 tests passed
+- `npm test`: 17 files, 79 tests passed
 - `npx tsc --noEmit --incremental false`: passed
 - `npm run build`: passed
 - 화면 확인:
   - `http://127.0.0.1:3000`: 200
   - `http://127.0.0.1:3000/upload`: 200
-  - `http://127.0.0.1:3000/admin`: build route verified
+  - `http://127.0.0.1:3000/admin`: 200
+  - 관리자 API 집중 테스트: 4 files, 30 tests passed
 
 ## 다음 작업
 
-1. Supabase migration 실제 프로젝트에 적용
-2. GitHub Repository Secrets 등록:
+1. 관리자 코드 재발송/SMS 연동
+2. Supabase migration 실제 프로젝트에 적용
+3. GitHub Repository Secrets 등록:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-3. Supabase migration 실제 프로젝트에 추가 적용:
+4. Supabase migration 실제 프로젝트에 추가 적용:
    - `contract_analysis_results`
    - `analysis_access_codes`
-4. 관리자 인증 강화:
+5. 관리자 인증 강화:
    - 현재 `ADMIN_ACCESS_TOKEN`이 있으면 Bearer 토큰을 검사한다.
    - 정식 운영 전에는 로그인/권한/감사 로그가 필요하다.
-5. 코드 사용 처리 원자성 강화:
+6. 코드 사용 처리 원자성 강화:
    - 현재 서버 경계에서 사용 처리한다.
    - 동시 제출 방지는 DB 함수/RPC 또는 조건부 업데이트가 필요하다.
-6. OCR 운영 보강:
+7. OCR 운영 보강:
    - 파일 매직바이트 검증
    - PDF 페이지 수 제한
    - OCR 요청 rate limit/timeout
-7. 관리자 코드 목록/취소/재발송 화면
-8. SMS 발송 연동
-9. 법령 API 실키/캐시 연동
-10. 분석 결과 공유 토큰 또는 사용자 인증
+8. 관리자 목록 코드 원문 노출 최소화:
+   - 현재 MVP는 관리 편의상 6자리 코드를 표시한다.
+   - 운영 전에는 생성 직후 1회 표시 + 목록 maskedCode/hash 저장 방식을 검토한다.
+9. SMS 발송 연동
+10. 법령 API 실키/캐시 연동
+11. 분석 결과 공유 토큰 또는 사용자 인증
 
 ## 주의
 

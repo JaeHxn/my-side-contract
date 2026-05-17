@@ -43,4 +43,18 @@ describe("analyzeContract", () => {
     expect(result.missingClauses).toEqual(expectedRuleBasedResult.missingClauses);
     expect(result.legalReferences).toEqual(expectedRuleBasedResult.legalReferences);
   });
+
+  it("uses labor law references for labor contracts", async () => {
+    vi.stubEnv("DISABLE_AI_ANALYSIS", "true");
+
+    const result = await analyzeContract({
+      contractText:
+        "제1조 임금은 월 250만원으로 매월 25일 지급한다. 제2조 근로시간은 주 40시간으로 한다. 제3조 휴게시간과 연차는 근로기준법에 따른다.",
+      category: "labor"
+    });
+
+    expect(result.category).toBe("labor");
+    expect(result.legalReferences.map((reference) => reference.title)).toContain("근로기준법");
+    expect(result.legalReferences.map((reference) => reference.title)).toContain("최저임금법");
+  });
 });

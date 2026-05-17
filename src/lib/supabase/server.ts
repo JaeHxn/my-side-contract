@@ -12,6 +12,7 @@ export interface SupabaseServerConfig {
 export interface SupabaseSelectOptions {
   select?: string;
   limit?: number;
+  order?: string;
 }
 
 export interface SupabaseUpsertOptions {
@@ -20,6 +21,11 @@ export interface SupabaseUpsertOptions {
 }
 
 export interface SupabaseRestClient {
+  selectMany<Row>(
+    table: string,
+    filters: Record<string, string | number | boolean>,
+    options?: SupabaseSelectOptions
+  ): Promise<Row[]>;
   selectOne<Row>(
     table: string,
     filters: Record<string, string | number | boolean>,
@@ -81,20 +87,36 @@ class SupabaseRestClientImpl implements SupabaseRestClient {
     private readonly fetchImpl: SupabaseFetch
   ) {}
 
+  async selectMany<Row>(
+    table: string,
+    filters: Record<string, string | number | boolean>,
+    options: SupabaseSelectOptions = {}
+  ): Promise<Row[]> {
+    const url = this.createSelectUrl(table, filters, options);
+
+    const response = await this.fetchImpl(url, {
+      method: "GET",
+      headers: this.authHeaders()
+    });
+    const payload = await readJsonResponse(response);
+
+    if (!response.ok) {
+      throw new SupabaseRequestError("Supabase select request failed.", response.status, payload);
+    }
+
+    if (!Array.isArray(payload)) {
+      throw new SupabaseRequestError("Supabase select response was not an array.", response.status, payload);
+    }
+
+    return payload as Row[];
+  }
+
   async selectOne<Row>(
     table: string,
     filters: Record<string, string | number | boolean>,
     options: SupabaseSelectOptions = {}
   ): Promise<Row | null> {
-    const url = this.createTableUrl(table);
-    url.searchParams.set("select", options.select ?? "*");
-
-    for (const [column, value] of Object.entries(filters)) {
-      assertIdentifier(column, "filter column");
-      url.searchParams.set(column, `eq.${String(value)}`);
-    }
-
-    url.searchParams.set("limit", String(options.limit ?? 1));
+    const url = this.createSelectUrl(table, filters, { ...options, limit: options.limit ?? 1 });
 
     const response = await this.fetchImpl(url, {
       method: "GET",
@@ -155,6 +177,31 @@ class SupabaseRestClientImpl implements SupabaseRestClient {
     return new URL(`${this.config.url}/rest/v1/${table}`);
   }
 
+  private createSelectUrl(
+    table: string,
+    filters: Record<string, string | number | boolean>,
+    options: SupabaseSelectOptions
+  ): URL {
+    const url = this.createTableUrl(table);
+    url.searchParams.set("select", options.select ?? "*");
+
+    for (const [column, value] of Object.entries(filters)) {
+      assertIdentifier(column, "filter column");
+      url.searchParams.set(column, `eq.${String(value)}`);
+    }
+
+    if (options.order) {
+      assertOrderExpression(options.order);
+      url.searchParams.set("order", options.order);
+    }
+
+    if (options.limit) {
+      url.searchParams.set("limit", String(options.limit));
+    }
+
+    return url;
+  }
+
   private authHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
     return {
       apikey: this.config.serviceRoleKey,
@@ -181,6 +228,12 @@ function normalizeSupabaseUrl(rawUrl: string, envName: string): string {
 function assertIdentifier(value: string, label: string): void {
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) {
     throw new SupabaseRequestError(`Invalid Supabase ${label}.`);
+  }
+}
+
+function assertOrderExpression(value: string): void {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*(\.(asc|desc|nullsfirst|nullslast))*$/.test(value)) {
+    throw new SupabaseRequestError("Invalid Supabase order expression.");
   }
 }
 

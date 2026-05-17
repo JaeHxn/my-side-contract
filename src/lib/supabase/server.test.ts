@@ -43,6 +43,37 @@ describe("getSupabaseServerConfig", () => {
 });
 
 describe("createSupabaseServerClient", () => {
+  it("selects multiple rows with filters, ordering, and limits", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify([{ code: "123456" }, { code: "222222" }])));
+    const client = createSupabaseServerClient(
+      {
+        url: "https://example.supabase.co",
+        serviceRoleKey: "test-service-role-key"
+      },
+      fetchImpl
+    );
+
+    const rows = await client.selectMany<{ code: string }>(
+      "analysis_access_codes",
+      { status: "active" },
+      { select: "code,status", order: "issued_at.desc", limit: 20 }
+    );
+
+    expect(rows).toEqual([{ code: "123456" }, { code: "222222" }]);
+
+    const [input, init] = (fetchImpl.mock.calls as unknown as Array<Parameters<SupabaseFetch>>)[0];
+    const url = new URL(String(input));
+    expect(url.pathname).toBe("/rest/v1/analysis_access_codes");
+    expect(url.searchParams.get("select")).toBe("code,status");
+    expect(url.searchParams.get("status")).toBe("eq.active");
+    expect(url.searchParams.get("order")).toBe("issued_at.desc");
+    expect(url.searchParams.get("limit")).toBe("20");
+    expect(init?.headers).toMatchObject({
+      apikey: "test-service-role-key",
+      authorization: "Bearer test-service-role-key"
+    });
+  });
+
   it("selects a single row with service-role headers", async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify([{ id: "analysis-1234" }])));
     const client = createSupabaseServerClient(

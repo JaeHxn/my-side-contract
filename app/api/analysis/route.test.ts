@@ -147,6 +147,53 @@ describe("POST /api/analysis", () => {
     expect(markAnalysisAccessCodeUsed).not.toHaveBeenCalled();
   });
 
+  it("accepts labor contract analysis requests", async () => {
+    const laborAnalysis: ContractAnalysisResult = {
+      ...sampleAnalysis,
+      id: "analysis-labor123",
+      category: "labor",
+      summary: {
+        ...sampleAnalysis.summary,
+        overallRisk: "high",
+        riskyCount: 2
+      }
+    };
+    const storedResult = {
+      id: "analysis-labor123",
+      category: "labor" as const,
+      provider: "rule-based" as const,
+      overallRisk: "high" as const,
+      createdAt: "2026-05-17T00:00:00.000Z",
+      analysis: laborAnalysis
+    };
+
+    vi.mocked(analyzeContract).mockResolvedValue(laborAnalysis);
+    vi.mocked(saveContractAnalysisResult).mockResolvedValue(storedResult);
+
+    const response = await POST(
+      new Request("http://localhost/api/analysis", {
+        method: "POST",
+        body: JSON.stringify({
+          contractText: "제1조 임금은 월 250만원이다. 제2조 포괄임금에 연장근로수당이 포함된다.",
+          category: "labor",
+          accessCode: "123456"
+        })
+      })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      analysis: {
+        category: "labor"
+      },
+      resultUrl: "/result/analysis-labor123"
+    });
+    expect(response.status).toBe(200);
+    expect(analyzeContract).toHaveBeenCalledWith({
+      contractText: "제1조 임금은 월 250만원이다. 제2조 포괄임금에 연장근로수당이 포함된다.",
+      category: "labor"
+    });
+  });
+
   it("uses the development fallback code when Supabase access-code storage is not ready", async () => {
     const storedResult = {
       id: "analysis-route123",

@@ -2,7 +2,7 @@
 
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Clipboard, Loader2, RotateCcw } from "lucide-react";
+import { AlertTriangle, Ban, CheckCircle2, Clipboard, Loader2, RefreshCw, RotateCcw } from "lucide-react";
 
 type AccessCode = {
   code: string;
@@ -16,10 +16,24 @@ type AccessCode = {
   resultId?: string | null;
 };
 
-type IssueCodeResponse = {
-  accessCode?: AccessCode;
+type AccessCodeStatusFilter = "all" | "active" | "used" | "expired" | "revoked";
+
+type ApiMessagePayload = {
   error?: string;
   message?: string;
+};
+
+type IssueCodeResponse = ApiMessagePayload & {
+  accessCode?: AccessCode;
+};
+
+type ListAccessCodesResponse = ApiMessagePayload & {
+  accessCodes?: AccessCode[];
+  count?: number;
+};
+
+type RevokeAccessCodeResponse = ApiMessagePayload & {
+  accessCode?: AccessCode;
 };
 
 type FormState = {
@@ -37,6 +51,14 @@ const initialForm: FormState = {
   memo: "",
   ttlDays: "30"
 };
+
+const statusFilters: Array<{ value: AccessCodeStatusFilter; label: string }> = [
+  { value: "all", label: "전체" },
+  { value: "active", label: "사용 가능" },
+  { value: "used", label: "사용 완료" },
+  { value: "expired", label: "만료" },
+  { value: "revoked", label: "취소" }
+];
 
 function compactPayload(form: FormState) {
   const payload: {
@@ -59,6 +81,23 @@ function compactPayload(form: FormState) {
   return payload;
 }
 
+function buildAdminHeaders(adminToken: string, hasJsonBody = false) {
+  const headers: Record<string, string> = {
+    Accept: "application/json"
+  };
+  const token = adminToken.trim();
+
+  if (hasJsonBody) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (token) {
+    headers.authorization = `Bearer ${token}`;
+  }
+
+  return headers;
+}
+
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
 
@@ -74,7 +113,11 @@ function formatDateTime(value?: string | null) {
   }).format(date);
 }
 
-function getErrorMessage(response: Response, payload: IssueCodeResponse) {
+function getErrorMessage(
+  response: Response,
+  payload: ApiMessagePayload,
+  fallbackMessage = "코드 발급에 실패했습니다. 잠시 후 다시 시도해 주세요."
+) {
   if (payload.message) return payload.message;
   if (payload.error) return payload.error;
 
@@ -86,7 +129,29 @@ function getErrorMessage(response: Response, payload: IssueCodeResponse) {
     return "관리자 권한을 확인해 주세요.";
   }
 
-  return "코드 발급에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+  return fallbackMessage;
+}
+
+function getStatusLabel(status?: string | null) {
+  if (status === "active") return "사용 가능";
+  if (status === "used") return "사용 완료";
+  if (status === "expired") return "만료";
+  if (status === "revoked") return "취소";
+
+  return status || "-";
+}
+
+function getStatusBadgeClass(status?: string | null) {
+  if (status === "active") return "bg-safe/10 text-safe";
+  if (status === "used") return "bg-sage/10 text-sage";
+  if (status === "expired") return "bg-danger/10 text-danger";
+  if (status === "revoked") return "bg-danger/10 text-danger";
+
+  return "bg-ink/8 text-ink/64";
+}
+
+function isActiveAccessCode(accessCode: AccessCode) {
+  return accessCode.status === "active";
 }
 
 function FieldLabel({ children, htmlFor }: { children: ReactNode; htmlFor: string }) {
@@ -107,6 +172,12 @@ export function AccessCodeIssuer() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<AccessCodeStatusFilter>("active");
+  const [accessCodes, setAccessCodes] = useState<AccessCode[]>([]);
+  const [accessCodeCount, setAccessCodeCount] = useState<number | null>(null);
+  const [listErrorMessage, setListErrorMessage] = useState("");
+  const [isLoadingCodes, setIsLoadingCodes] = useState(false);
+  const [revokingCode, setRevokingCode] = useState<string | null>(null);
 
   const ttlDays = useMemo(() => Number(form.ttlDays), [form.ttlDays]);
   const isTtlValid = Number.isInteger(ttlDays) && ttlDays >= 1 && ttlDays <= 90;
@@ -116,8 +187,97 @@ export function AccessCodeIssuer() {
     (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       setForm((current) => ({ ...current, [field]: event.target.value }));
       setErrorMessage("");
+      if (field === "adminToken") {
+        setListErrorMessage("");
+      }
       setCopied(false);
     };
+
+  function changeStatusFilter(nextStatusFilter: AccessCodeStatusFilter) {
+    setStatusFilter(nextStatusFilter);
+    setAccessCodes([]);
+    setAccessCodeCount(null);
+    setListErrorMessage("");
+  }
+
+  async function refreshAccessCodes(nextStatusFilter = statusFilter) {
+    setIsLoadingCodes(true);
+    setListErrorMessage("");
+
+    try {
+      const query = new URLSearchParams({
+        limit: "20"
+      });
+
+      if (nextStatusFilter !== "all") {
+        query.set("status", nextStatusFilter);
+      }
+      const response = await fetch(`/api/admin/access-codes?${query.toString()}`, {
+        headers: buildAdminHeaders(form.adminToken)
+      });
+      const payload = (await response.json().catch(() => ({}))) as ListAccessCodesResponse;
+
+      if (!response.ok) {
+        setListErrorMessage(getErrorMessage(response, payload, "최근 코드 목록을 불러오지 못했습니다."));
+        return;
+      }
+
+      if (!Array.isArray(payload.accessCodes)) {
+        setListErrorMessage("목록 응답 형식이 올바르지 않습니다.");
+        return;
+      }
+
+      setAccessCodes(payload.accessCodes);
+      setAccessCodeCount(typeof payload.count === "number" ? payload.count : payload.accessCodes.length);
+    } catch {
+      setListErrorMessage("네트워크 상태를 확인한 뒤 목록을 다시 불러와 주세요.");
+    } finally {
+      setIsLoadingCodes(false);
+    }
+  }
+
+  async function revokeAccessCode(code: string) {
+    if (revokingCode) return;
+
+    setRevokingCode(code);
+    setListErrorMessage("");
+
+    try {
+      const response = await fetch("/api/admin/access-codes/revoke", {
+        method: "POST",
+        headers: buildAdminHeaders(form.adminToken, true),
+        body: JSON.stringify({ code })
+      });
+      const payload = (await response.json().catch(() => ({}))) as RevokeAccessCodeResponse;
+
+      if (!response.ok) {
+        setListErrorMessage(getErrorMessage(response, payload, "코드 취소에 실패했습니다."));
+        return;
+      }
+
+      if (!payload.accessCode?.code) {
+        setListErrorMessage("취소 응답 형식이 올바르지 않습니다.");
+        return;
+      }
+
+      setAccessCode((current) => (current?.code === code ? payload.accessCode ?? current : current));
+      setAccessCodes((current) => {
+        if (statusFilter === "active") {
+          return current.filter((item) => item.code !== code);
+        }
+
+        return current.map((item) => (item.code === code ? payload.accessCode ?? item : item));
+      });
+
+      if (statusFilter === "active") {
+        setAccessCodeCount((current) => (typeof current === "number" ? Math.max(0, current - 1) : current));
+      }
+    } catch {
+      setListErrorMessage("네트워크 상태를 확인한 뒤 다시 취소해 주세요.");
+    } finally {
+      setRevokingCode(null);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -135,11 +295,7 @@ export function AccessCodeIssuer() {
     try {
       const response = await fetch("/api/admin/access-codes", {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          ...(form.adminToken.trim() ? { authorization: `Bearer ${form.adminToken.trim()}` } : {})
-        },
+        headers: buildAdminHeaders(form.adminToken, true),
         body: JSON.stringify(compactPayload(form))
       });
       const payload = (await response.json().catch(() => ({}))) as IssueCodeResponse;
@@ -367,6 +523,177 @@ export function AccessCodeIssuer() {
               <p className="text-lg font-black text-ink">아직 발급된 코드가 없습니다</p>
               <p className="mt-2 max-w-sm text-sm leading-6 text-ink/58">
                 왼쪽 폼을 제출하면 6자리 코드와 만료일이 이 영역에 표시됩니다.
+              </p>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel sm:p-6 lg:col-span-2">
+        <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="mb-2 text-sm font-black text-sage">최근 코드 목록</p>
+            <h2 className="text-2xl font-black leading-tight text-ink">발급된 접근 코드를 확인하고 취소합니다</h2>
+            <p className="mt-3 text-sm leading-6 text-ink/62">
+              관리자 토큰이 필요한 환경에서는 위 입력값을 그대로 사용합니다. 새로고침 시 최근 20개를 불러옵니다.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="inline-flex rounded-lg border border-ink/10 bg-paper p-1">
+              {statusFilters.map((option) => {
+                const isSelected = option.value === statusFilter;
+
+                return (
+                  <button
+                    className={`min-h-10 rounded-md px-3 text-xs font-black transition sm:text-sm ${
+                      isSelected ? "bg-ink text-paper shadow-sm" : "text-ink/64 hover:bg-white hover:text-ink"
+                    }`}
+                    key={option.value}
+                    onClick={() => changeStatusFilter(option.value)}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-ink/12 bg-white px-4 py-2 text-sm font-black text-ink transition hover:border-sage/40 hover:text-sage disabled:cursor-not-allowed disabled:text-ink/40"
+              disabled={isLoadingCodes}
+              onClick={() => void refreshAccessCodes()}
+              type="button"
+            >
+              {isLoadingCodes ? (
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw aria-hidden="true" className="h-4 w-4" />
+              )}
+              새로고침
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-xs font-black text-ink/56">
+          <span className="rounded-full bg-paper px-3 py-1">
+            필터: {statusFilters.find((option) => option.value === statusFilter)?.label}
+          </span>
+          <span className="rounded-full bg-paper px-3 py-1">
+            {accessCodeCount === null ? "아직 불러오지 않음" : `총 ${accessCodeCount}개`}
+          </span>
+        </div>
+
+        {listErrorMessage ? (
+          <div className="mb-4 flex gap-3 rounded-lg border border-danger/20 bg-danger/8 p-4 text-sm font-bold leading-6 text-danger">
+            <AlertTriangle aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" />
+            <p>{listErrorMessage}</p>
+          </div>
+        ) : null}
+
+        {accessCodeCount === null && !isLoadingCodes ? (
+          <div className="flex min-h-48 items-center justify-center rounded-lg border border-dashed border-ink/16 bg-paper p-6 text-center">
+            <div>
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-sage/10 text-sage">
+                <RefreshCw aria-hidden="true" className="h-5 w-5" />
+              </div>
+              <p className="text-lg font-black text-ink">목록을 아직 불러오지 않았습니다</p>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-ink/58">
+                상태 필터를 선택한 뒤 새로고침을 누르면 관리자 코드 목록이 표시됩니다.
+              </p>
+            </div>
+          </div>
+        ) : accessCodes.length ? (
+          <div className="overflow-hidden rounded-lg border border-ink/10">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-ink/10 text-left text-sm">
+                <thead className="bg-paper text-xs font-black uppercase text-ink/54">
+                  <tr>
+                    <th className="px-4 py-3" scope="col">
+                      코드
+                    </th>
+                    <th className="px-4 py-3" scope="col">
+                      상태
+                    </th>
+                    <th className="px-4 py-3" scope="col">
+                      구매자
+                    </th>
+                    <th className="px-4 py-3" scope="col">
+                      발급/만료
+                    </th>
+                    <th className="px-4 py-3" scope="col">
+                      사용
+                    </th>
+                    <th className="px-4 py-3" scope="col">
+                      메모
+                    </th>
+                    <th className="px-4 py-3 text-right" scope="col">
+                      관리
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink/8 bg-white">
+                  {accessCodes.map((item) => (
+                    <tr className="align-top" key={item.code}>
+                      <td className="px-4 py-4">
+                        <p className="select-all font-mono text-lg font-black text-ink">{item.code}</p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${getStatusBadgeClass(item.status)}`}>
+                          {getStatusLabel(item.status)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="font-black text-ink">{item.buyerName || "-"}</p>
+                        <p className="mt-1 text-xs font-bold text-ink/48">{item.phone || "-"}</p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="font-bold text-ink">{formatDateTime(item.issuedAt)}</p>
+                        <p className="mt-1 text-xs font-bold text-danger">만료: {formatDateTime(item.expiresAt)}</p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="font-bold text-ink">{formatDateTime(item.usedAt)}</p>
+                        {item.resultId ? (
+                          <p className="mt-1 max-w-[9rem] truncate text-xs font-bold text-ink/44">결과 {item.resultId}</p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="max-w-[18rem] truncate font-bold text-ink/72">{item.memo || "-"}</p>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        {isActiveAccessCode(item) ? (
+                          <button
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-danger/20 bg-white px-3 py-2 text-sm font-black text-danger transition hover:bg-danger/8 disabled:cursor-not-allowed disabled:text-danger/40"
+                            disabled={Boolean(revokingCode)}
+                            onClick={() => void revokeAccessCode(item.code)}
+                            type="button"
+                          >
+                            {revokingCode === item.code ? (
+                              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Ban aria-hidden="true" className="h-4 w-4" />
+                            )}
+                            취소
+                          </button>
+                        ) : (
+                          <span className="text-sm font-bold text-ink/36">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="flex min-h-48 items-center justify-center rounded-lg border border-dashed border-ink/16 bg-paper p-6 text-center">
+            <div>
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-ink/8 text-ink/56">
+                <Clipboard aria-hidden="true" className="h-5 w-5" />
+              </div>
+              <p className="text-lg font-black text-ink">표시할 코드가 없습니다</p>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-ink/58">
+                다른 상태 필터를 선택하거나 새로고침으로 최신 목록을 다시 확인하세요.
               </p>
             </div>
           </div>

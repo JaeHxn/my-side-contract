@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
-import { AccessCodeValidationError, createAnalysisAccessCode } from "@/src/lib/server/access-codes";
-import { SupabaseConfigError, SupabaseRequestError } from "@/src/lib/supabase/server";
-
-const ADMIN_ACCESS_TOKEN_ENV = "ADMIN_ACCESS_TOKEN";
+import {
+  AccessCodeValidationError,
+  createAnalysisAccessCode,
+  listAnalysisAccessCodes
+} from "@/src/lib/server/access-codes";
+import { isAuthorizedAdminRequest, isDevelopmentSupabaseSetupError, jsonNoStore } from "./shared";
 
 const accessCodeRequestSchema = z.object({
   buyerName: z.string().trim().max(80).optional(),
@@ -86,40 +87,72 @@ export async function POST(request: Request) {
   }
 }
 
-function isAuthorizedAdminRequest(request: Request): boolean {
-  const token = process.env[ADMIN_ACCESS_TOKEN_ENV]?.trim();
-
-  if (!token) {
-    return true;
+export async function GET(request: Request) {
+  if (!isAuthorizedAdminRequest(request)) {
+    return jsonNoStore(
+      {
+        error: "UNAUTHORIZED",
+        message: "관리자 권한이 필요합니다."
+      },
+      401
+    );
   }
 
-  const authorization = request.headers.get("authorization") || "";
-  const headerToken = request.headers.get("x-admin-token") || "";
+  const url = new URL(request.url);
+  const statusParam = url.searchParams.get("status")?.trim() || undefined;
+  const status = statusParam && statusParam !== "all" ? statusParam : undefined;
+  const limitParam = url.searchParams.get("limit");
+  const limit = limitParam === null ? undefined : Number(limitParam);
 
-  return authorization === `Bearer ${token}` || headerToken === token;
-}
+  try {
+    const accessCodes = await listAnalysisAccessCodes({
+      ...(status ? { status } : {}),
+      ...(limit !== undefined ? { limit } : {})
+    });
 
-function isDevelopmentSupabaseSetupError(error: unknown): boolean {
-  if (process.env.NODE_ENV === "production") {
-    return false;
-  }
-
-  if (error instanceof SupabaseConfigError) {
-    return true;
-  }
-
-  if (error instanceof SupabaseRequestError) {
-    return error.status === 401 || error.status === 404;
-  }
-
-  return false;
-}
-
-function jsonNoStore(body: unknown, status = 200) {
-  return NextResponse.json(body, {
-    status,
-    headers: {
-      "Cache-Control": "no-store"
+    return jsonNoStore({ accessCodes });
+  } catch (error) {
+    if (error instanceof AccessCodeValidationError) {
+      return jsonNoStore(
+        {
+          error: "INVALID_ACCESS_CODE_LIST_REQUEST",
+          message: error.message
+        },
+        400
+      );
     }
-  });
+
+    if (isDevelopmentSupabaseSetupError(error)) {
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      return jsonNoStore({
+        accessCodes: [
+          {
+            code: "123456",
+            status: "active",
+            buyerName: "로컬 테스트",
+            phone: null,
+            memo: "Supabase 설정 또는 migration 전 로컬 테스트용 코드입니다.",
+            issuedAt: now.toISOString(),
+            expiresAt: expiresAt.toISOString(),
+            usedAt: null,
+            resultId: null
+          }
+        ],
+        warning: {
+          code: "LOCAL_DEMO_CODE",
+          message: "Supabase 설정 또는 migration이 준비되지 않아 로컬 테스트용 코드 123456을 표시합니다."
+        }
+      });
+    }
+
+    return jsonNoStore(
+      {
+        error: "ACCESS_CODE_LIST_FAILED",
+        message: "분석 코드 목록 조회에 실패했습니다."
+      },
+      500
+    );
+  }
 }

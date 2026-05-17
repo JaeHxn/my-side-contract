@@ -7,7 +7,7 @@ const ACCESS_CODE_SELECT =
   "code, status, buyer_name, phone, memo, issued_at, expires_at, used_at, result_id";
 const SIX_DIGIT_CODE_PATTERN = /^\d{6}$/;
 
-const accessCodeStatusSchema = z.enum(["active", "used", "expired"]);
+const accessCodeStatusSchema = z.enum(["active", "used", "expired", "revoked"]);
 
 const accessCodeRowSchema = z.object({
   code: z.string().regex(SIX_DIGIT_CODE_PATTERN),
@@ -26,6 +26,11 @@ export const createAccessCodeInputSchema = z.object({
   phone: z.string().trim().max(30).optional(),
   memo: z.string().trim().max(300).optional(),
   ttlDays: z.number().int().min(1).max(90).default(30)
+});
+
+export const listAccessCodeInputSchema = z.object({
+  status: accessCodeStatusSchema.optional(),
+  limit: z.number().int().min(1).max(100).default(50)
 });
 
 export type AccessCodeStatus = z.infer<typeof accessCodeStatusSchema>;
@@ -141,6 +146,10 @@ export async function verifyAnalysisAccessCode(
     return { ok: false, reason: "이미 사용된 분석 코드입니다." };
   }
 
+  if (accessCode.status === "revoked") {
+    return { ok: false, reason: "취소된 분석 코드입니다." };
+  }
+
   if (accessCode.status === "expired" || isExpired(accessCode.expiresAt, options.now ?? new Date())) {
     return { ok: false, reason: "만료된 분석 코드입니다." };
   }
@@ -180,6 +189,76 @@ export async function markAnalysisAccessCodeUsed(
       expires_at: accessCode.expiresAt,
       used_at: usedAt,
       result_id: resultId
+    },
+    {
+      onConflict: "code",
+      select: ACCESS_CODE_SELECT
+    }
+  );
+
+  return parseAccessCodeRow(saved);
+}
+
+export async function listAnalysisAccessCodes(
+  input: unknown = {},
+  options: AccessCodeOperationOptions = {}
+): Promise<AnalysisAccessCode[]> {
+  const parsed = listAccessCodeInputSchema.safeParse(input || {});
+
+  if (!parsed.success) {
+    throw new AccessCodeValidationError("분석 코드 목록 요청 형식이 올바르지 않습니다.");
+  }
+
+  const client = options.client ?? createSupabaseServerClient();
+  const filters: Record<string, string | number | boolean> = {};
+
+  if (parsed.data.status) {
+    filters.status = parsed.data.status;
+  }
+
+  const rows = await client.selectMany<unknown>(ACCESS_CODE_TABLE, filters, {
+    select: ACCESS_CODE_SELECT,
+    order: "issued_at.desc",
+    limit: parsed.data.limit
+  });
+
+  return rows.map(parseAccessCodeRow);
+}
+
+export async function revokeAnalysisAccessCode(
+  codeInput: unknown,
+  options: AccessCodeOperationOptions = {}
+): Promise<AnalysisAccessCode> {
+  const code = parseAccessCode(codeInput);
+  const client = options.client ?? createSupabaseServerClient();
+  const row = await client.selectOne<unknown>(ACCESS_CODE_TABLE, { code }, { select: ACCESS_CODE_SELECT });
+
+  if (!row) {
+    throw new AccessCodeValidationError("분석 코드를 찾을 수 없습니다.");
+  }
+
+  const accessCode = parseAccessCodeRow(row);
+
+  if (accessCode.status === "used") {
+    throw new AccessCodeValidationError("이미 사용된 분석 코드는 취소할 수 없습니다.");
+  }
+
+  if (accessCode.status === "revoked") {
+    return accessCode;
+  }
+
+  const saved = await client.upsertOne<unknown>(
+    ACCESS_CODE_TABLE,
+    {
+      code: accessCode.code,
+      status: "revoked",
+      buyer_name: accessCode.buyerName,
+      phone: accessCode.phone,
+      memo: accessCode.memo,
+      issued_at: accessCode.issuedAt,
+      expires_at: accessCode.expiresAt,
+      used_at: accessCode.usedAt,
+      result_id: accessCode.resultId
     },
     {
       onConflict: "code",

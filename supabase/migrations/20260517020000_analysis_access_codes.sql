@@ -1,6 +1,6 @@
 create table if not exists public.analysis_access_codes (
   code text primary key check (code ~ '^[0-9]{6}$'),
-  status text not null default 'active' check (status in ('active', 'used', 'expired')),
+  status text not null default 'active' check (status in ('active', 'used', 'expired', 'revoked')),
   buyer_name text,
   phone text,
   memo text,

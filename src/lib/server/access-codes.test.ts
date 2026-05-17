@@ -3,7 +3,9 @@ import type { SupabaseRestClient } from "@/src/lib/supabase/server";
 import {
   AccessCodeValidationError,
   createAnalysisAccessCode,
+  listAnalysisAccessCodes,
   markAnalysisAccessCodeUsed,
+  revokeAnalysisAccessCode,
   verifyAnalysisAccessCode
 } from "./access-codes";
 
@@ -22,6 +24,7 @@ const activeRow = {
 
 function createClient(overrides: Partial<SupabaseRestClient> = {}): SupabaseRestClient {
   return {
+    selectMany: vi.fn(),
     selectOne: vi.fn(),
     upsertOne: vi.fn(),
     ...overrides
@@ -35,6 +38,15 @@ function mockSelectOne(
   ) => Promise<unknown | null>
 ): SupabaseRestClient["selectOne"] {
   return vi.fn(implementation) as unknown as SupabaseRestClient["selectOne"];
+}
+
+function mockSelectMany(
+  implementation: (
+    table: string,
+    filters: Record<string, string | number | boolean>
+  ) => Promise<unknown[]>
+): SupabaseRestClient["selectMany"] {
+  return vi.fn(implementation) as unknown as SupabaseRestClient["selectMany"];
 }
 
 function mockUpsertOne(
@@ -146,6 +158,14 @@ describe("verifyAnalysisAccessCode", () => {
       reason: "이미 사용된 분석 코드입니다."
     });
 
+    const revokedClient = createClient({
+      selectOne: mockSelectOne(async () => ({ ...activeRow, status: "revoked" }))
+    });
+    await expect(verifyAnalysisAccessCode("123456", { client: revokedClient })).resolves.toMatchObject({
+      ok: false,
+      reason: "취소된 분석 코드입니다."
+    });
+
     const expiredClient = createClient({ selectOne: mockSelectOne(async () => activeRow) });
     await expect(
       verifyAnalysisAccessCode("123456", { client: expiredClient, now: new Date("2026-07-01T00:00:00.000Z") })
@@ -183,5 +203,71 @@ describe("markAnalysisAccessCodeUsed", () => {
       status: "used",
       resultId: "analysis-abc123"
     });
+  });
+});
+
+describe("listAnalysisAccessCodes", () => {
+  it("lists recent codes with optional status filtering", async () => {
+    const client = createClient({
+      selectMany: mockSelectMany(async () => [activeRow, { ...activeRow, code: "222222", status: "used" }])
+    });
+
+    const accessCodes = await listAnalysisAccessCodes({ status: "active", limit: 20 }, { client });
+
+    expect(client.selectMany).toHaveBeenCalledWith(
+      "analysis_access_codes",
+      { status: "active" },
+      {
+        select: expect.any(String),
+        order: "issued_at.desc",
+        limit: 20
+      }
+    );
+    expect(accessCodes).toHaveLength(2);
+    expect(accessCodes[0]).toMatchObject({ code: "123456", status: "active" });
+  });
+
+  it("rejects invalid list filters before querying", async () => {
+    const client = createClient();
+
+    await expect(listAnalysisAccessCodes({ status: "deleted" }, { client })).rejects.toBeInstanceOf(
+      AccessCodeValidationError
+    );
+    expect(client.selectMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("revokeAnalysisAccessCode", () => {
+  it("marks an active code as revoked", async () => {
+    const client = createClient({
+      selectOne: mockSelectOne(async () => activeRow),
+      upsertOne: mockUpsertOne(async (_table, row) => row)
+    });
+
+    const updated = await revokeAnalysisAccessCode("123456", { client });
+
+    expect(client.upsertOne).toHaveBeenCalledWith(
+      "analysis_access_codes",
+      expect.objectContaining({
+        code: "123456",
+        status: "revoked"
+      }),
+      expect.objectContaining({ onConflict: "code" })
+    );
+    expect(updated).toMatchObject({
+      code: "123456",
+      status: "revoked"
+    });
+  });
+
+  it("does not revoke already used codes", async () => {
+    const client = createClient({
+      selectOne: mockSelectOne(async () => ({ ...activeRow, status: "used" }))
+    });
+
+    await expect(revokeAnalysisAccessCode("123456", { client })).rejects.toBeInstanceOf(
+      AccessCodeValidationError
+    );
+    expect(client.upsertOne).not.toHaveBeenCalled();
   });
 });
