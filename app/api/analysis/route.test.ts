@@ -147,6 +147,28 @@ describe("POST /api/analysis", () => {
     expect(markAnalysisAccessCodeUsed).not.toHaveBeenCalled();
   });
 
+  it("rejects revoked access codes before analysis", async () => {
+    vi.mocked(verifyAnalysisAccessCode).mockResolvedValue({ ok: false, reason: "취소된 분석 코드입니다." });
+
+    const response = await POST(
+      new Request("http://localhost/api/analysis", {
+        method: "POST",
+        body: JSON.stringify({
+          contractText: validContractText,
+          category: "housing-lease",
+          accessCode: "123456"
+        })
+      })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      error: "INVALID_ACCESS_CODE",
+      message: "취소된 분석 코드입니다."
+    });
+    expect(response.status).toBe(401);
+    expect(analyzeContract).not.toHaveBeenCalled();
+  });
+
   it("accepts labor contract analysis requests", async () => {
     const laborAnalysis: ContractAnalysisResult = {
       ...sampleAnalysis,

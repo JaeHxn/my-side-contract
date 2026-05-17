@@ -38,6 +38,7 @@ export type AccessCodeStatus = z.infer<typeof accessCodeStatusSchema>;
 
 export interface AnalysisAccessCode {
   code: string;
+  maskedCode: string;
   status: AccessCodeStatus;
   buyerName: string | null;
   phone: string | null;
@@ -248,6 +249,10 @@ export async function revokeAnalysisAccessCode(
     return accessCode;
   }
 
+  if (accessCode.status === "expired" || isExpired(accessCode.expiresAt, options.now ?? new Date())) {
+    return accessCode;
+  }
+
   const saved = await client.upsertOne<unknown>(
     ACCESS_CODE_TABLE,
     {
@@ -279,6 +284,7 @@ function parseAccessCodeRow(input: unknown): AnalysisAccessCode {
 
   return {
     code: parsed.data.code,
+    maskedCode: maskAccessCode(parsed.data.code),
     status: parsed.data.status,
     buyerName: parsed.data.buyer_name || null,
     phone: parsed.data.phone || null,
@@ -307,6 +313,10 @@ function safeParseAccessCode(input: unknown): string | null {
 
   const code = input.trim();
   return SIX_DIGIT_CODE_PATTERN.test(code) ? code : null;
+}
+
+function maskAccessCode(code: string): string {
+  return `${code.slice(0, 2)}••••`;
 }
 
 function normalizeOptionalText(value: string | undefined): string | null {

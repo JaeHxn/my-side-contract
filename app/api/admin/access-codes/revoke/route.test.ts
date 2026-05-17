@@ -14,6 +14,7 @@ vi.mock("@/src/lib/server/access-codes", async (importOriginal) => {
 
 const sampleRevokedAccessCode = {
   code: "123456",
+  maskedCode: "12••••",
   status: "revoked" as const,
   buyerName: "테스트",
   phone: null,

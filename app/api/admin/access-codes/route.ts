@@ -59,6 +59,7 @@ export async function POST(request: Request) {
         {
           accessCode: {
             code: "123456",
+            maskedCode: "12••••",
             status: "active",
             buyerName: parsed.data.buyerName || null,
             phone: parsed.data.phone || null,
@@ -130,6 +131,7 @@ export async function GET(request: Request) {
         accessCodes: [
           {
             code: "123456",
+            maskedCode: "12••••",
             status: "active",
             buyerName: "로컬 테스트",
             phone: null,

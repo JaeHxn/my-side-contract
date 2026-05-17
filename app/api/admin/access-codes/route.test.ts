@@ -16,6 +16,7 @@ vi.mock("@/src/lib/server/access-codes", async (importOriginal) => {
 
 const sampleAccessCode = {
   code: "123456",
+  maskedCode: "12••••",
   status: "active" as const,
   buyerName: "홍길동",
   phone: "010-1234-5678",
@@ -195,6 +196,21 @@ describe("GET /api/admin/access-codes", () => {
 
     const response = await GET(
       new Request("http://localhost/api/admin/access-codes?status=deleted", {
+        headers: adminHeaders
+      })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ error: "INVALID_ACCESS_CODE_LIST_REQUEST" });
+    expect(response.status).toBe(400);
+  });
+
+  it("rejects limit over max (10000) with 400", async () => {
+    vi.mocked(listAnalysisAccessCodes).mockRejectedValue(
+      new AccessCodeValidationError("분석 코드 목록 요청 형식이 올바르지 않습니다.")
+    );
+
+    const response = await GET(
+      new Request("http://localhost/api/admin/access-codes?limit=10000", {
         headers: adminHeaders
       })
     );

@@ -7,6 +7,7 @@ import { formatKoreanDateTime } from "@/src/lib/time/korean-time";
 
 type AccessCode = {
   code: string;
+  maskedCode: string;
   status: string;
   buyerName?: string | null;
   phone?: string | null;
@@ -607,7 +608,7 @@ export function AccessCodeIssuer() {
                   {accessCodes.map((item) => (
                     <tr className="align-top" key={item.code}>
                       <td className="px-4 py-4">
-                        <p className="select-all font-mono text-lg font-black text-ink">{item.code}</p>
+                        <p className="font-mono text-lg font-black text-ink">{item.maskedCode}</p>
                       </td>
                       <td className="px-4 py-4">
                         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${getStatusBadgeClass(item.status)}`}>

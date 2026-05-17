@@ -54,6 +54,7 @@ export async function POST(request: Request) {
       return jsonNoStore({
         accessCode: {
           code: parsed.data.code,
+          maskedCode: `${parsed.data.code.slice(0, 2)}••••`,
           status: "revoked",
           buyerName: "로컬 테스트",
           phone: null,

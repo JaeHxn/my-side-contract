@@ -303,4 +303,40 @@ describe("revokeAnalysisAccessCode", () => {
     );
     expect(client.upsertOne).not.toHaveBeenCalled();
   });
+
+  it("returns already-revoked codes without a DB write (idempotent)", async () => {
+    const client = createClient({
+      selectOne: mockSelectOne(async () => ({ ...activeRow, status: "revoked" }))
+    });
+
+    const updated = await revokeAnalysisAccessCode("123456", { client });
+
+    expect(client.upsertOne).not.toHaveBeenCalled();
+    expect(updated).toMatchObject({ code: "123456", status: "revoked" });
+  });
+
+  it("returns expired-status codes without a DB write (no-op policy)", async () => {
+    const client = createClient({
+      selectOne: mockSelectOne(async () => ({ ...activeRow, status: "expired" }))
+    });
+
+    const updated = await revokeAnalysisAccessCode("123456", { client });
+
+    expect(client.upsertOne).not.toHaveBeenCalled();
+    expect(updated).toMatchObject({ code: "123456", status: "expired" });
+  });
+
+  it("returns time-expired active codes without a DB write (no-op policy)", async () => {
+    const client = createClient({
+      selectOne: mockSelectOne(async () => activeRow)
+    });
+
+    const updated = await revokeAnalysisAccessCode("123456", {
+      client,
+      now: new Date("2026-07-01T00:00:00.000Z")
+    });
+
+    expect(client.upsertOne).not.toHaveBeenCalled();
+    expect(updated).toMatchObject({ code: "123456", status: "active" });
+  });
 });

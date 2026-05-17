@@ -3,7 +3,9 @@ import {
   getAdminAccessToken,
   verifyAdminSessionCookieHeader
 } from "@/src/lib/server/admin-auth";
-import { SupabaseConfigError, SupabaseRequestError } from "@/src/lib/supabase/server";
+import { isDevelopmentSupabaseSetupError } from "@/src/lib/server/dev-fallback";
+
+export { isDevelopmentSupabaseSetupError };
 
 export function isAuthorizedAdminRequest(request: Request): boolean {
   const token = getAdminAccessToken();
@@ -20,22 +22,6 @@ export function isAuthorizedAdminRequest(request: Request): boolean {
     headerToken === token ||
     verifyAdminSessionCookieHeader(request.headers.get("cookie"))
   );
-}
-
-export function isDevelopmentSupabaseSetupError(error: unknown): boolean {
-  if (process.env.NODE_ENV === "production") {
-    return false;
-  }
-
-  if (error instanceof SupabaseConfigError) {
-    return true;
-  }
-
-  if (error instanceof SupabaseRequestError) {
-    return error.status === 401 || error.status === 404;
-  }
-
-  return false;
 }
 
 export function jsonNoStore(body: unknown, status = 200, headers: Record<string, string> = {}) {
