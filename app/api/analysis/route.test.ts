@@ -1,17 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ContractAnalysisResult } from "@/src/lib/contracts/types";
 import { analyzeContract } from "@/src/lib/analysis/service";
-import { verifyAccessCode } from "@/src/lib/payments/access-code";
+import { markAnalysisAccessCodeUsed, verifyAnalysisAccessCode } from "@/src/lib/server/access-codes";
 import { saveContractAnalysisResult } from "@/src/lib/server/results";
 import { POST } from "./route";
 
 vi.mock("@/src/lib/analysis/service", () => ({
   analyzeContract: vi.fn()
-}));
-
-vi.mock("@/src/lib/payments/access-code", () => ({
-  getAccessCodeAllowlist: vi.fn(() => "123456"),
-  verifyAccessCode: vi.fn(() => ({ ok: true }))
 }));
 
 vi.mock("@/src/lib/server/results", async (importOriginal) => {
@@ -20,6 +15,16 @@ vi.mock("@/src/lib/server/results", async (importOriginal) => {
   return {
     ...actual,
     saveContractAnalysisResult: vi.fn()
+  };
+});
+
+vi.mock("@/src/lib/server/access-codes", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/src/lib/server/access-codes")>();
+
+  return {
+    ...actual,
+    verifyAnalysisAccessCode: vi.fn(() => ({ ok: true, accessCode: { code: "123456" } })),
+    markAnalysisAccessCodeUsed: vi.fn()
   };
 });
 
@@ -49,9 +54,10 @@ const sampleAnalysis: ContractAnalysisResult = {
 describe("POST /api/analysis", () => {
   beforeEach(() => {
     vi.mocked(analyzeContract).mockReset();
-    vi.mocked(verifyAccessCode).mockReset();
+    vi.mocked(verifyAnalysisAccessCode).mockReset();
+    vi.mocked(markAnalysisAccessCodeUsed).mockReset();
     vi.mocked(saveContractAnalysisResult).mockReset();
-    vi.mocked(verifyAccessCode).mockReturnValue({ ok: true });
+    vi.mocked(verifyAnalysisAccessCode).mockResolvedValue({ ok: true, accessCode: { code: "123456" } as never });
   });
 
   it("analyzes and persists a valid contract request", async () => {
@@ -89,6 +95,7 @@ describe("POST /api/analysis", () => {
       category: "housing-lease"
     });
     expect(saveContractAnalysisResult).toHaveBeenCalledWith(sampleAnalysis);
+    expect(markAnalysisAccessCodeUsed).toHaveBeenCalledWith("123456", "analysis-route123");
   });
 
   it("keeps the analysis response when result persistence fails", async () => {
@@ -115,10 +122,11 @@ describe("POST /api/analysis", () => {
       }
     });
     expect(response.status).toBe(200);
+    expect(markAnalysisAccessCodeUsed).not.toHaveBeenCalled();
   });
 
   it("rejects invalid access codes before analysis", async () => {
-    vi.mocked(verifyAccessCode).mockReturnValue({ ok: false, reason: "분석 코드가 올바르지 않습니다." });
+    vi.mocked(verifyAnalysisAccessCode).mockResolvedValue({ ok: false, reason: "분석 코드가 올바르지 않습니다." });
 
     const response = await POST(
       new Request("http://localhost/api/analysis", {
@@ -135,5 +143,6 @@ describe("POST /api/analysis", () => {
     expect(response.status).toBe(401);
     expect(analyzeContract).not.toHaveBeenCalled();
     expect(saveContractAnalysisResult).not.toHaveBeenCalled();
+    expect(markAnalysisAccessCodeUsed).not.toHaveBeenCalled();
   });
 });

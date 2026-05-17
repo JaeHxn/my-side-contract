@@ -3,7 +3,9 @@ import { z } from "zod";
 import { analyzeContract } from "@/src/lib/analysis/service";
 import { enabledCategories } from "@/src/lib/contracts/categories";
 import { getAccessCodeAllowlist, verifyAccessCode } from "@/src/lib/payments/access-code";
+import { markAnalysisAccessCodeUsed, verifyAnalysisAccessCode } from "@/src/lib/server/access-codes";
 import { ResultValidationError, saveContractAnalysisResult } from "@/src/lib/server/results";
+import { SupabaseConfigError } from "@/src/lib/supabase/server";
 
 const analysisRequestSchema = z.object({
   contractText: z.string().trim().min(30, "계약서 내용은 최소 30자 이상 입력해주세요.").max(50000),
@@ -16,23 +18,35 @@ export async function POST(request: Request) {
   const parsed = analysisRequestSchema.safeParse(payload);
 
   if (!parsed.success) {
-    return NextResponse.json(
+    return jsonNoStore(
       {
         error: "INVALID_REQUEST",
         message: parsed.error.issues[0]?.message || "요청 형식이 올바르지 않습니다."
       },
-      { status: 400 }
+      400
     );
   }
 
-  const codeResult = verifyAccessCode(parsed.data.accessCode, getAccessCodeAllowlist());
+  let codeResult;
+  try {
+    codeResult = await verifySubmittedAccessCode(parsed.data.accessCode);
+  } catch {
+    return jsonNoStore(
+      {
+        error: "ACCESS_CODE_CHECK_FAILED",
+        message: "분석 코드 확인에 실패했습니다. 잠시 후 다시 시도해주세요."
+      },
+      503
+    );
+  }
+
   if (!codeResult.ok) {
-    return NextResponse.json(
+    return jsonNoStore(
       {
         error: "INVALID_ACCESS_CODE",
         message: codeResult.reason
       },
-      { status: 401 }
+      401
     );
   }
 
@@ -43,8 +57,9 @@ export async function POST(request: Request) {
 
   try {
     const result = await saveContractAnalysisResult(analysis);
+    await markAnalysisCodeUsed(parsed.data.accessCode, result.id);
 
-    return NextResponse.json({
+    return jsonNoStore({
       analysis,
       result,
       resultUrl: `/result/${result.id}`
@@ -52,7 +67,7 @@ export async function POST(request: Request) {
   } catch (error) {
     const code = error instanceof ResultValidationError ? "INVALID_ANALYSIS_RESULT" : "RESULT_SAVE_FAILED";
 
-    return NextResponse.json({
+    return jsonNoStore({
       analysis,
       result: null,
       resultUrl: null,
@@ -62,4 +77,33 @@ export async function POST(request: Request) {
       }
     });
   }
+}
+
+async function verifySubmittedAccessCode(accessCode: string) {
+  try {
+    return await verifyAnalysisAccessCode(accessCode);
+  } catch (error) {
+    if (error instanceof SupabaseConfigError) {
+      return verifyAccessCode(accessCode, getAccessCodeAllowlist());
+    }
+
+    throw error;
+  }
+}
+
+async function markAnalysisCodeUsed(accessCode: string, resultId: string) {
+  try {
+    await markAnalysisAccessCodeUsed(accessCode, resultId);
+  } catch {
+    // The analysis result has already been saved. Keep the user flow intact and let admin reconcile the code later.
+  }
+}
+
+function jsonNoStore(body: unknown, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store"
+    }
+  });
 }
