@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type ChangeEvent, type FormEvent, useMemo, useState } from "react";
 import { ArrowRight, ClipboardPaste, FileText, Loader2, UploadCloud } from "lucide-react";
 import type { ContractAnalysisResult, ContractCategory } from "@/src/lib/contracts/types";
@@ -8,6 +9,10 @@ import { ResultCards } from "./result-cards";
 
 type AnalysisResponse = {
   analysis?: ContractAnalysisResult;
+  resultUrl?: string | null;
+  warning?: {
+    message?: string;
+  };
   message?: string;
   error?: string;
 };
@@ -35,6 +40,8 @@ export function UploadAnalyzer() {
   const [accessCode, setAccessCode] = useState("");
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState("");
+  const [saveWarning, setSaveWarning] = useState("");
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<ContractAnalysisResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -80,6 +87,8 @@ export function UploadAnalyzer() {
 
     setIsSubmitting(true);
     setError("");
+    setSaveWarning("");
+    setResultUrl(null);
 
     try {
       const response = await fetch("/api/analysis", {
@@ -105,6 +114,8 @@ export function UploadAnalyzer() {
       }
 
       setAnalysis(payload.analysis);
+      setResultUrl(payload.resultUrl || null);
+      setSaveWarning(payload.warning?.message || "");
       window.requestAnimationFrame(() => {
         document.getElementById("analysis-result")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
@@ -264,7 +275,28 @@ export function UploadAnalyzer() {
           <LegalDisclaimer compact />
         </div>
 
-        <div aria-live="polite">{analysis && <ResultCards analysis={analysis} />}</div>
+        <div aria-live="polite" className="space-y-4">
+          {analysis && resultUrl && (
+            <div className="rounded-lg border border-sage/20 bg-sage/8 p-4 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-bold leading-6 text-ink">분석 결과가 저장되었습니다. 링크로 다시 확인할 수 있습니다.</p>
+                <Link
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-ink px-4 py-3 text-sm font-black text-paper transition hover:bg-sage"
+                  href={resultUrl}
+                >
+                  상세 결과 보기
+                  <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+          )}
+          {analysis && saveWarning && (
+            <div className="rounded-lg border border-warn/25 bg-warn/10 p-4 text-sm font-semibold leading-6 text-ink">
+              {saveWarning}
+            </div>
+          )}
+          {analysis && <ResultCards analysis={analysis} />}
+        </div>
       </main>
     </div>
   );
