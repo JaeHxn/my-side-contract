@@ -12,7 +12,7 @@
 
 ## 현재 진행도
 
-제품 MVP 100% 기준 약 65%.
+제품 MVP 100% 기준 약 67%.
 
 ## 현재 로컬 확인 URL
 
@@ -41,6 +41,9 @@
 - 관리자 코드 목록 UI 및 상태 필터
 - 관리자 코드 목록 API `GET /api/admin/access-codes`
 - 관리자 코드 취소 API `POST /api/admin/access-codes/revoke`
+- 관리자 페이지 로그인 게이트 `/admin`
+- 관리자 로그인/로그아웃 API `POST /api/admin/auth/login`, `POST /api/admin/auth/logout`
+- 관리자 HttpOnly 세션 쿠키 인증
 - Supabase 분석 코드 저장 migration `analysis_access_codes`
 - Supabase 분석 코드 `revoked` 상태 migration
 - 코드 만료/사용 처리 서버 경계
@@ -57,14 +60,14 @@
 
 ## 마지막 검증
 
-- `npm test`: 17 files, 79 tests passed
+- `npm test`: 21 files, 93 tests passed
 - `npx tsc --noEmit --incremental false`: passed
 - `npm run build`: passed
 - 화면 확인:
   - `http://127.0.0.1:3000`: 200
   - `http://127.0.0.1:3000/upload`: 200
   - `http://127.0.0.1:3000/admin`: 200
-  - 관리자 API 집중 테스트: 4 files, 30 tests passed
+  - 관리자 인증/API 집중 테스트: 5 files, 24 tests passed
 
 ## 다음 작업
 
@@ -76,9 +79,9 @@
 4. Supabase migration 실제 프로젝트에 추가 적용:
    - `contract_analysis_results`
    - `analysis_access_codes`
-5. 관리자 인증 강화:
-   - 현재 `ADMIN_ACCESS_TOKEN`이 있으면 Bearer 토큰을 검사한다.
-   - 정식 운영 전에는 로그인/권한/감사 로그가 필요하다.
+5. 관리자 인증 추가 강화:
+   - 현재 `ADMIN_ACCESS_TOKEN` 기반 로그인과 HttpOnly 세션 쿠키를 사용한다.
+   - 정식 운영 전에는 감사 로그, 로그인 실패 제한, 계정 잠금 정책이 필요하다.
 6. 코드 사용 처리 원자성 강화:
    - 현재 서버 경계에서 사용 처리한다.
    - 동시 제출 방지는 DB 함수/RPC 또는 조건부 업데이트가 필요하다.

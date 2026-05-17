@@ -1,12 +1,26 @@
 import Link from "next/link";
-import { ArrowLeft, KeyRound, ShieldCheck } from "lucide-react";
+import { cookies } from "next/headers";
+import { AlertTriangle, ArrowLeft, KeyRound, ShieldCheck } from "lucide-react";
+import {
+  ADMIN_SESSION_COOKIE,
+  isAdminAuthConfigured,
+  verifyAdminSessionToken
+} from "@/src/lib/server/admin-auth";
 import { AccessCodeIssuer } from "./AccessCodeIssuer";
+import { AdminLoginForm } from "./AdminLoginForm";
+import { AdminLogoutButton } from "./AdminLogoutButton";
 
 export const metadata = {
   title: "관리자 코드 발급 | 내편계약서"
 };
 
-export default function AdminPage() {
+export const dynamic = "force-dynamic";
+
+export default async function AdminPage() {
+  const cookieStore = await cookies();
+  const isConfigured = isAdminAuthConfigured();
+  const isAuthenticated = isConfigured && verifyAdminSessionToken(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-ink/10 bg-paper/84 backdrop-blur">
@@ -14,13 +28,16 @@ export default function AdminPage() {
           <Link className="text-lg font-black text-ink" href="/">
             내편계약서
           </Link>
-          <Link
-            className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-3 py-2 text-sm font-bold text-ink transition hover:border-sage/40 hover:text-sage"
-            href="/"
-          >
-            <ArrowLeft aria-hidden="true" className="h-4 w-4" />
-            홈
-          </Link>
+          <div className="flex items-center gap-2">
+            {isAuthenticated ? <AdminLogoutButton /> : null}
+            <Link
+              className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-3 py-2 text-sm font-bold text-ink transition hover:border-sage/40 hover:text-sage"
+              href="/"
+            >
+              <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+              홈
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -45,7 +62,24 @@ export default function AdminPage() {
           </div>
         </section>
 
-        <AccessCodeIssuer />
+        {!isConfigured ? (
+          <section className="rounded-lg border border-danger/20 bg-danger/8 p-5 shadow-panel sm:p-7">
+            <div className="flex gap-3">
+              <AlertTriangle aria-hidden="true" className="mt-1 h-5 w-5 shrink-0 text-danger" />
+              <div>
+                <h2 className="text-xl font-black text-ink">관리자 접근 보호 설정이 필요합니다</h2>
+                <p className="mt-2 text-sm leading-6 text-ink/68">
+                  `.env.local`에 `ADMIN_ACCESS_TOKEN`을 설정해야 관리자 페이지와 관리자 API가 열립니다.
+                  현재는 코드 발급 화면을 표시하지 않습니다.
+                </p>
+              </div>
+            </div>
+          </section>
+        ) : isAuthenticated ? (
+          <AccessCodeIssuer />
+        ) : (
+          <AdminLoginForm />
+        )}
       </main>
     </div>
   );

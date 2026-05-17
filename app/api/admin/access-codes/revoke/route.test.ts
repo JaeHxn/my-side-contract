@@ -24,8 +24,13 @@ const sampleRevokedAccessCode = {
   resultId: null
 };
 
+const adminHeaders = {
+  authorization: "Bearer secret-admin-token"
+};
+
 describe("POST /api/admin/access-codes/revoke", () => {
   beforeEach(() => {
+    vi.stubEnv("ADMIN_ACCESS_TOKEN", "secret-admin-token");
     vi.mocked(revokeAnalysisAccessCode).mockReset();
   });
 
@@ -39,6 +44,7 @@ describe("POST /api/admin/access-codes/revoke", () => {
     const response = await POST(
       new Request("http://localhost/api/admin/access-codes/revoke", {
         method: "POST",
+        headers: adminHeaders,
         body: JSON.stringify({ code: "123456" })
       })
     );
@@ -53,6 +59,7 @@ describe("POST /api/admin/access-codes/revoke", () => {
     const response = await POST(
       new Request("http://localhost/api/admin/access-codes/revoke", {
         method: "POST",
+        headers: adminHeaders,
         body: JSON.stringify({ code: "abc123" })
       })
     );
@@ -62,9 +69,7 @@ describe("POST /api/admin/access-codes/revoke", () => {
     expect(revokeAnalysisAccessCode).not.toHaveBeenCalled();
   });
 
-  it("requires the configured admin token when present", async () => {
-    vi.stubEnv("ADMIN_ACCESS_TOKEN", "secret-admin-token");
-
+  it("requires admin authorization", async () => {
     const missingTokenResponse = await POST(
       new Request("http://localhost/api/admin/access-codes/revoke", {
         method: "POST",
@@ -95,6 +100,7 @@ describe("POST /api/admin/access-codes/revoke", () => {
     const response = await POST(
       new Request("http://localhost/api/admin/access-codes/revoke", {
         method: "POST",
+        headers: adminHeaders,
         body: JSON.stringify({ code: "123456" })
       })
     );
@@ -109,6 +115,7 @@ describe("POST /api/admin/access-codes/revoke", () => {
     const response = await POST(
       new Request("http://localhost/api/admin/access-codes/revoke", {
         method: "POST",
+        headers: adminHeaders,
         body: JSON.stringify({ code: "123456" })
       })
     );

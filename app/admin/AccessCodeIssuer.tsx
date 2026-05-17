@@ -38,7 +38,6 @@ type RevokeAccessCodeResponse = ApiMessagePayload & {
 };
 
 type FormState = {
-  adminToken: string;
   buyerName: string;
   phone: string;
   memo: string;
@@ -46,7 +45,6 @@ type FormState = {
 };
 
 const initialForm: FormState = {
-  adminToken: "",
   buyerName: "",
   phone: "",
   memo: "",
@@ -82,18 +80,13 @@ function compactPayload(form: FormState) {
   return payload;
 }
 
-function buildAdminHeaders(adminToken: string, hasJsonBody = false) {
+function buildAdminHeaders(hasJsonBody = false) {
   const headers: Record<string, string> = {
     Accept: "application/json"
   };
-  const token = adminToken.trim();
 
   if (hasJsonBody) {
     headers["Content-Type"] = "application/json";
-  }
-
-  if (token) {
-    headers.authorization = `Bearer ${token}`;
   }
 
   return headers;
@@ -182,9 +175,6 @@ export function AccessCodeIssuer() {
     (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       setForm((current) => ({ ...current, [field]: event.target.value }));
       setErrorMessage("");
-      if (field === "adminToken") {
-        setListErrorMessage("");
-      }
       setCopied(false);
     };
 
@@ -208,7 +198,7 @@ export function AccessCodeIssuer() {
         query.set("status", nextStatusFilter);
       }
       const response = await fetch(`/api/admin/access-codes?${query.toString()}`, {
-        headers: buildAdminHeaders(form.adminToken)
+        headers: buildAdminHeaders()
       });
       const payload = (await response.json().catch(() => ({}))) as ListAccessCodesResponse;
 
@@ -240,7 +230,7 @@ export function AccessCodeIssuer() {
     try {
       const response = await fetch("/api/admin/access-codes/revoke", {
         method: "POST",
-        headers: buildAdminHeaders(form.adminToken, true),
+        headers: buildAdminHeaders(true),
         body: JSON.stringify({ code })
       });
       const payload = (await response.json().catch(() => ({}))) as RevokeAccessCodeResponse;
@@ -290,7 +280,7 @@ export function AccessCodeIssuer() {
     try {
       const response = await fetch("/api/admin/access-codes", {
         method: "POST",
-        headers: buildAdminHeaders(form.adminToken, true),
+        headers: buildAdminHeaders(true),
         body: JSON.stringify(compactPayload(form))
       });
       const payload = (await response.json().catch(() => ({}))) as IssueCodeResponse;
@@ -343,20 +333,6 @@ export function AccessCodeIssuer() {
         </div>
 
         <form className="space-y-5" onSubmit={handleSubmit}>
-          <div className="space-y-2">
-            <FieldLabel htmlFor="adminToken">관리자 토큰</FieldLabel>
-            <input
-              autoComplete="off"
-              className="w-full rounded-lg border border-ink/12 bg-paper px-4 py-3 text-sm font-bold text-ink outline-none transition placeholder:text-ink/34 focus:border-sage focus:bg-white focus:ring-4 focus:ring-sage/10"
-              id="adminToken"
-              onChange={updateField("adminToken")}
-              placeholder="ADMIN_ACCESS_TOKEN 설정 시 입력"
-              type="password"
-              value={form.adminToken}
-            />
-            <FieldHint>환경변수에 관리자 토큰을 설정한 경우에만 필요합니다.</FieldHint>
-          </div>
-
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <FieldLabel htmlFor="buyerName">이름</FieldLabel>
@@ -530,7 +506,7 @@ export function AccessCodeIssuer() {
             <p className="mb-2 text-sm font-black text-sage">최근 코드 목록</p>
             <h2 className="text-2xl font-black leading-tight text-ink">발급된 접근 코드를 확인하고 취소합니다</h2>
             <p className="mt-3 text-sm leading-6 text-ink/62">
-              관리자 토큰이 필요한 환경에서는 위 입력값을 그대로 사용합니다. 새로고침 시 최근 20개를 불러옵니다.
+              로그인 세션으로 관리자 API를 호출합니다. 새로고침 시 최근 20개를 불러옵니다.
             </p>
           </div>
 
