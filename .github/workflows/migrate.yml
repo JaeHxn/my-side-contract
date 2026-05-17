@@ -15,11 +15,13 @@ jobs:
 
       - name: Run migrations via psql
         env:
-          DATABASE_URL: "postgresql://postgres.${{ secrets.SUPABASE_PROJECT_REF }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres"
+          PROJ: ${{ secrets.SUPABASE_PROJECT_REF }}
+          PASS: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          echo "Running migrations..."
+          DB_URL="postgresql://postgres.${PROJ}:${PASS}@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres"
+          echo "Connecting to Supabase..."
           for f in $(ls supabase/migrations/*.sql | sort); do
             echo "→ $f"
-            psql "$DATABASE_URL" -f "$f" -v ON_ERROR_STOP=1
+            psql "${DB_URL}" -f "$f" -v ON_ERROR_STOP=1
           done
           echo "✅ All migrations complete"
