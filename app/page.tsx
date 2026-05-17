@@ -206,12 +206,12 @@ function ContractPreview() {
 export default function HomePage() {
   return (
     <main className="min-h-screen">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-6 lg:px-8">
-        <Link className="text-xl font-black text-ink" href="/">
+      <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-5 sm:px-6 lg:px-8">
+        <Link className="shrink-0 text-xl font-black text-ink" href="/">
           내편계약서
         </Link>
         <Link
-          className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-bold text-paper transition hover:bg-sage"
+          className="inline-flex shrink-0 items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-bold text-paper transition hover:bg-sage"
           href="/upload"
         >
           분석 시작
@@ -220,16 +220,16 @@ export default function HomePage() {
       </header>
 
       {/* Hero */}
-      <section className="mx-auto grid max-w-6xl items-center gap-8 px-5 pb-14 pt-6 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8 lg:pb-20 lg:pt-10">
-        <div className="fade-up">
+      <section className="mx-auto grid max-w-6xl items-center gap-8 overflow-hidden px-5 pb-14 pt-6 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8 lg:pb-20 lg:pt-10">
+        <div className="fade-up min-w-0">
           <p className="mb-4 inline-flex items-center rounded-full border border-sage/20 bg-sage/10 px-3 py-1 text-sm font-bold text-sage">
             전월세·근로 계약서 분석
           </p>
-          <h1 className="break-keep text-[2.4rem] font-black leading-[1.18] text-ink sm:text-5xl lg:text-[3.4rem]">
+          <h1 className="max-w-full text-[2.15rem] font-black leading-[1.18] text-ink sm:text-5xl lg:text-[3.4rem]">
             받은 계약서,<br />
             사인 전에 내 편인지<br className="lg:hidden" /> 확인하세요
           </h1>
-          <p className="mt-5 max-w-xl break-keep text-lg leading-8 text-ink/68">
+          <p className="mt-5 max-w-xl text-base leading-8 text-ink/68 sm:text-lg">
             전월세·근로 계약서의 불리한 조항, 불법 가능 문구, 빠진 보호 조항을
             법령 근거와 함께 쉬운 말로 정리합니다.
           </p>
@@ -248,23 +248,23 @@ export default function HomePage() {
               사용법 보기
             </a>
           </div>
-          <div className="mt-6 grid grid-cols-3 gap-2 text-sm font-bold text-ink/60 sm:max-w-lg">
-            <div className="flex items-center gap-1.5">
+          <div className="mt-6 grid grid-cols-1 gap-2 text-sm font-bold text-ink/60 sm:max-w-lg sm:grid-cols-3">
+            <div className="flex min-w-0 items-center gap-1.5">
               <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-safe" />
               법령 근거
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex min-w-0 items-center gap-1.5">
               <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-safe" />
               쉬운 설명
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex min-w-0 items-center gap-1.5">
               <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-safe" />
               수정 권고
             </div>
           </div>
         </div>
 
-        <div className="fade-up" id="sample">
+        <div className="fade-up min-w-0" id="sample">
           <ContractPreview />
         </div>
       </section>
