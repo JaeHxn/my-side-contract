@@ -6,6 +6,7 @@ import type {
   MissingClause,
   RiskLevel
 } from "@/src/lib/contracts/types";
+import { formatKoreanDateTime } from "@/src/lib/time/korean-time";
 import { RiskBadge } from "./risk-badge";
 
 const riskLabels: Record<RiskLevel, string> = {
@@ -23,16 +24,10 @@ const typeLabels: Record<AnalysisItem["type"], string> = {
 };
 
 function formatDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
+  return formatKoreanDateTime(value, {
     dateStyle: "medium",
     timeStyle: "short"
-  }).format(date);
+  });
 }
 
 function renderLegalBasis(references: LawReference[]) {

@@ -3,6 +3,7 @@
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { AlertTriangle, Ban, CheckCircle2, Clipboard, Loader2, RefreshCw, RotateCcw } from "lucide-react";
+import { formatKoreanDateTime } from "@/src/lib/time/korean-time";
 
 type AccessCode = {
   code: string;
@@ -101,16 +102,10 @@ function buildAdminHeaders(adminToken: string, hasJsonBody = false) {
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
 
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
+  return formatKoreanDateTime(value, {
     dateStyle: "long",
     timeStyle: "short"
-  }).format(date);
+  });
 }
 
 function getErrorMessage(
