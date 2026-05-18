@@ -1,6 +1,10 @@
 import { randomInt } from "node:crypto";
 import { z } from "zod";
-import { createSupabaseServerClient, type SupabaseRestClient } from "@/src/lib/supabase/server";
+import {
+  createSupabaseServerClient,
+  SupabaseRequestError,
+  type SupabaseRestClient
+} from "@/src/lib/supabase/server";
 
 const ACCESS_CODE_TABLE = "analysis_access_codes";
 const ACCESS_CODE_SELECT =
@@ -253,11 +257,27 @@ export async function revokeAnalysisAccessCode(
     return accessCode;
   }
 
+  try {
+    return await saveAccessCodeStatus(client, accessCode, "revoked");
+  } catch (error) {
+    if (!isUnsupportedRevokedStatusError(error)) {
+      throw error;
+    }
+
+    return saveAccessCodeStatus(client, accessCode, "expired");
+  }
+}
+
+async function saveAccessCodeStatus(
+  client: SupabaseRestClient,
+  accessCode: AnalysisAccessCode,
+  status: AccessCodeStatus
+): Promise<AnalysisAccessCode> {
   const saved = await client.upsertOne<unknown>(
     ACCESS_CODE_TABLE,
     {
       code: accessCode.code,
-      status: "revoked",
+      status,
       buyer_name: accessCode.buyerName,
       phone: accessCode.phone,
       memo: accessCode.memo,
@@ -273,6 +293,32 @@ export async function revokeAnalysisAccessCode(
   );
 
   return parseAccessCodeRow(saved);
+}
+
+function isUnsupportedRevokedStatusError(error: unknown): boolean {
+  if (!(error instanceof SupabaseRequestError) || error.status !== 400) {
+    return false;
+  }
+
+  const detailText = stringifyErrorDetail(error.detail).toLowerCase();
+
+  return (
+    detailText.includes("analysis_access_codes_status_check") ||
+    detailText.includes("23514") ||
+    (detailText.includes("revoked") && detailText.includes("status"))
+  );
+}
+
+function stringifyErrorDetail(detail: unknown): string {
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return "";
+  }
 }
 
 function parseAccessCodeRow(input: unknown): AnalysisAccessCode {

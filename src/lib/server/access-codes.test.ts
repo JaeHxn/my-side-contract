@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { SupabaseRestClient } from "@/src/lib/supabase/server";
+import { SupabaseRequestError, type SupabaseRestClient } from "@/src/lib/supabase/server";
 import {
   AccessCodeValidationError,
   createAnalysisAccessCode,
@@ -290,6 +290,49 @@ describe("revokeAnalysisAccessCode", () => {
     expect(updated).toMatchObject({
       code: "123456",
       status: "revoked"
+    });
+  });
+
+  it("falls back to expired when the database has not accepted revoked status yet", async () => {
+    const upsertOne = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new SupabaseRequestError("Supabase upsert request failed.", 400, {
+          code: "23514",
+          message:
+            'new row for relation "analysis_access_codes" violates check constraint "analysis_access_codes_status_check"'
+        })
+      )
+      .mockResolvedValueOnce({ ...activeRow, status: "expired" });
+    const client = createClient({
+      selectOne: mockSelectOne(async () => activeRow),
+      upsertOne: upsertOne as unknown as SupabaseRestClient["upsertOne"]
+    });
+
+    const updated = await revokeAnalysisAccessCode("123456", { client });
+
+    expect(upsertOne).toHaveBeenCalledTimes(2);
+    expect(upsertOne).toHaveBeenNthCalledWith(
+      1,
+      "analysis_access_codes",
+      expect.objectContaining({
+        code: "123456",
+        status: "revoked"
+      }),
+      expect.objectContaining({ onConflict: "code" })
+    );
+    expect(upsertOne).toHaveBeenNthCalledWith(
+      2,
+      "analysis_access_codes",
+      expect.objectContaining({
+        code: "123456",
+        status: "expired"
+      }),
+      expect.objectContaining({ onConflict: "code" })
+    );
+    expect(updated).toMatchObject({
+      code: "123456",
+      status: "expired"
     });
   });
 

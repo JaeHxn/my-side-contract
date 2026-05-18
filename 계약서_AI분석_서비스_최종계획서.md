@@ -1,7 +1,7 @@
 # 📋 계약서 AI 분석 서비스 — 최종 종합 계획서
 
 > 작성일: 2026년 5월  
-> 상태: MVP 구현 진행 중 — 로컬 기준 약 65%
+> 상태: MVP 구현 진행 중 — 로컬 기준 약 68%
 > 배포: 웹/모바일 브라우저 기반 서비스
 
 ---
@@ -241,7 +241,7 @@
 | 2주차 | OCR 연동, OpenAI API 연동 — 완료 |
 | 3주차 | 전월세/근로 규칙 분석 + 결과 저장 — 진행 중 |
 | 4주차 | 결제(계좌이체) + 관리자 코드 발급 + 문자 발송 — 코드 발급/목록/취소 완료, SMS 미완료 |
-| 5주차 | Supabase 실DB 적용 + 테스트 + 배포 — 미완료 |
+| 5주차 | Supabase 실DB 적용 + 테스트 + 배포 — Supabase migration 적용 필요 |
 
 **총 5주 MVP 출시 목표**
 
@@ -269,6 +269,8 @@ http://127.0.0.1:3000/admin  관리자 코드 발급/목록/취소
 ```
 
 현재 로컬 테스트용 분석 코드는 `123456`이다. Supabase migration과 service role key가 정상 적용되면 관리자 화면에서 랜덤 6자리 코드가 발급되고, 최근 코드 목록 조회와 active 코드 취소가 가능하다.
+
+2026-05-18 기준 관리자 코드 취소 API는 Supabase가 `revoked` 상태를 아직 허용하지 않는 경우에도 `expired`로 fallback 저장해 분석 사용을 차단한다. 관리자 화면에서 상태를 `취소`로 표시하려면 Supabase SQL Editor에서 `supabase/migrations/20260517050000_analysis_access_codes_revoked_status.sql`을 적용해야 한다.
 
 ### 도메인
 - MVP 초반엔 vercel.app 무료 주소로 운영

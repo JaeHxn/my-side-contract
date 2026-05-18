@@ -1,6 +1,7 @@
 # 내편계약서 MVP 진행 체크포인트
 
 작성 시점: 2026-05-17 01:05 KST
+최근 갱신: 2026-05-18 20:20 KST
 
 ## 제1조 작업 규칙
 
@@ -12,7 +13,7 @@
 
 ## 현재 진행도
 
-제품 MVP 100% 기준 약 67%.
+제품 MVP 100% 기준 약 68%.
 
 ## 현재 로컬 확인 URL
 
@@ -41,6 +42,7 @@
 - 관리자 코드 목록 UI 및 상태 필터
 - 관리자 코드 목록 API `GET /api/admin/access-codes`
 - 관리자 코드 취소 API `POST /api/admin/access-codes/revoke`
+- Supabase `revoked` 상태 migration 미적용 시 취소를 `expired`로 저장하는 fallback
 - 관리자 페이지 로그인 게이트 `/admin`
 - 관리자 로그인/로그아웃 API `POST /api/admin/auth/login`, `POST /api/admin/auth/logout`
 - 관리자 HttpOnly 세션 쿠키 인증
@@ -60,19 +62,26 @@
 
 ## 마지막 검증
 
-- `npm test`: 21 files, 93 tests passed
+- `npm test`: 21 files, 99 tests passed
 - `npx tsc --noEmit --incremental false`: passed
 - `npm run build`: passed
+- `npm run lint`: ESLint 설정이 없어 Next.js 대화형 설정 프롬프트에서 중단됨
 - 화면 확인:
   - `http://127.0.0.1:3000`: 200
   - `http://127.0.0.1:3000/upload`: 200
   - `http://127.0.0.1:3000/admin`: 200
   - 관리자 인증/API 집중 테스트: 5 files, 24 tests passed
+- 실제 관리자 API 확인:
+  - 임시 코드 발급 성공
+  - 취소 API 성공
+  - 현재 Supabase DB는 `revoked` migration 미적용 상태라 취소 결과가 `expired`로 저장됨
+  - 취소된 임시 코드로 분석 시도 시 `401 INVALID_ACCESS_CODE`로 거부됨
 
 ## 다음 작업
 
-1. 관리자 코드 재발송/SMS 연동
-2. Supabase migration 실제 프로젝트에 적용
+1. Supabase migration 실제 프로젝트에 적용:
+   - `analysis_access_codes_status_check`가 `revoked`를 허용해야 관리자 화면에서 취소 상태가 `취소`로 표시된다.
+2. 관리자 코드 재발송/SMS 연동
 3. GitHub Repository Secrets 등록:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`

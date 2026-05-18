@@ -106,6 +106,8 @@ Scope: 관리자 분석 코드 목록, 취소, 재발송 기능의 테스트 매
 
 주의: 현재 상태 스키마와 DB 제약이 `revoked`를 포함하지 않으면 revoke API는 코드 레벨 테스트를 통과해도 DB 저장에서 실패한다. 구현 전 마이그레이션과 Zod enum, 응답 타입을 함께 갱신해야 한다.
 
+2026-05-18 보강: `revoked` 저장이 Supabase 체크 제약으로 실패하는 개발/미마이그레이션 환경에서는 취소 API가 같은 코드를 `expired`로 다시 저장해 분석 사용을 차단한다. 이 fallback은 운영 중단을 막기 위한 안전장치이고, 정식 상태 표시는 `supabase/migrations/20260517050000_analysis_access_codes_revoked_status.sql` 적용 후 `revoked`로 맞춘다.
+
 ## Authentication And Cache Risks
 
 - 관리자 API는 토큰/세션이 없으면 실패해야 한다. 운영에서 관리자 토큰 미설정 시 통과하는 fallback은 금지해야 한다.
@@ -143,3 +145,10 @@ Scope: 관리자 분석 코드 목록, 취소, 재발송 기능의 테스트 매
 3. DB 상태 제약과 서버 enum에 `revoked` 포함 여부 확인
 4. `/api/analysis`가 expired/used/revoked를 분석 전에 거부하는지 확인
 5. SMS 미연동 재발송은 UI/API에서 보류/후속으로 표시하고 성공 발송처럼 보이지 않게 처리
+
+## 2026-05-18 Verification Note
+
+- `src/lib/server/access-codes.test.ts`: `revoked` 저장이 DB 제약으로 실패하면 `expired`로 fallback되는 회귀 테스트 추가.
+- `app/api/admin/access-codes/revoke/route.test.ts`: 취소 라우트 기존 테스트 통과.
+- 실제 로컬 서버 `http://127.0.0.1:3000`에서 임시 코드 발급 -> 취소 -> 분석 거부 흐름 확인.
+- 현재 연결된 Supabase DB는 `revoked` migration 미적용으로 판단된다. 취소 API는 성공하지만 상태는 `expired`로 저장된다.
