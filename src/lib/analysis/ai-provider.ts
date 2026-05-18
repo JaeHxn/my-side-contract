@@ -22,7 +22,7 @@ export async function maybeEnhanceWithAi(
   }
 
   try {
-    const note = await callOpenAi(contractText, apiKey, category);
+    const note = await callOpenAi(contractText, apiKey, category, analysis.legalReferences);
 
     return {
       ...analysis,
@@ -37,7 +37,12 @@ export async function maybeEnhanceWithAi(
   }
 }
 
-async function callOpenAi(contractText: string, apiKey: string, category: ContractCategory = "housing-lease"): Promise<string> {
+async function callOpenAi(
+  contractText: string,
+  apiKey: string,
+  category: ContractCategory = "housing-lease",
+  legalReferences: ContractAnalysisResult["legalReferences"] = []
+): Promise<string> {
   const { redactedText } = redactPii(contractText);
   const response = await fetch(OPENAI_RESPONSES_URL, {
     method: "POST",
@@ -48,7 +53,7 @@ async function callOpenAi(contractText: string, apiKey: string, category: Contra
     body: JSON.stringify({
       model: getOpenAiModel(),
       max_output_tokens: 220,
-      input: buildContractAnalysisPrompt(redactedText, category)
+      input: buildContractAnalysisPrompt(redactedText, category, legalReferences)
     })
   });
 

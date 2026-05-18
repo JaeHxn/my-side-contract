@@ -9,6 +9,7 @@ export type FindingType = "illegal" | "unfavorable" | "normal" | "missing";
 export interface LawReference {
   title: string;
   article?: string;
+  excerpt?: string;
   source: "law-api" | "built-in";
   url?: string;
   lastChecked?: string;

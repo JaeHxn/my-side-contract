@@ -36,12 +36,14 @@ GET https://www.law.go.kr/DRF/lawService.do
 ```
 GET https://www.law.go.kr/DRF/lawService.do
   ?OC={발급받은_ID}
-  &target=article
+  &target=lawjosub
   &type=JSON
-  &lawId={법령ID}
-  &joNo={조번호}
-  &joSeq={항번호}
+  &ID={법령ID}
+  &JO={조번호 6자리}
 ```
+
+`target=lawjosub`는 `ID` 또는 `MST` 중 하나가 필요하다. 예: `ID=001823&JO=000300`.
+법령명만 있을 때는 먼저 `lawSearch.do`로 `법령ID` 또는 `법령일련번호(MST)`를 찾은 뒤 조회한다.
 
 ## 계약서 유형별 핵심 법령 ID
 
@@ -59,7 +61,7 @@ GET https://www.law.go.kr/DRF/lawService.do
 ```typescript
 // lib/legal-api/client.ts
 const BASE_URL = 'https://www.law.go.kr/DRF'
-const OC = process.env.LEGAL_API_ID  // 환경변수로 관리
+const OC = process.env.LAW_API_OC  // 환경변수로 관리
 
 export async function fetchLawArticles(lawName: string): Promise<LawArticle[]> {
   // 1. 법령 검색으로 ID 조회
@@ -71,7 +73,7 @@ export async function fetchLawArticles(lawName: string): Promise<LawArticle[]> {
 
   // 2. 법령 본문 조회
   const lawRes = await fetch(
-    `${BASE_URL}/lawService.do?OC=${OC}&target=law&type=JSON&ID=${lawId}`
+    `${BASE_URL}/lawService.do?OC=${OC}&target=lawjosub&type=JSON&ID=${lawId}&JO=000400`
   )
   return parseLawArticles(await lawRes.json())
 }
@@ -128,6 +130,7 @@ OpenAI API에 계약서만 보내면 모델이 학습 시점의 법률로 판단
 | 오류 | 원인 | 해결 |
 |------|------|------|
 | 401 Unauthorized | OC 파라미터 누락/오류 | 환경변수 확인 |
+| 사용자 정보 검증 실패 | Open API 신청 정보에 서버 IP/도메인 미등록 | 국가법령정보센터 신청 화면에서 호출 서버 IP 또는 배포 도메인 등록 |
 | 빈 결과 반환 | 검색어 인코딩 문제 | `encodeURIComponent()` 적용 |
 | XML 응답 | `type=JSON` 누락 | 파라미터 확인 |
 | 타임아웃 | API 서버 부하 | 3초 타임아웃 설정, 캐시 폴백 |

@@ -36,3 +36,4 @@
 | 2026-05-17 | 관리자 코드 목록/상태 필터/취소 API와 UI, `revoked` migration, QA 매트릭스 추가 | 관리자/API/Supabase/QA | 결제 후 코드 운영 흐름 보강 |
 | 2026-05-17 | `/admin` 로그인 게이트, HttpOnly 세션 쿠키, 관리자 API 세션 인증 추가 | 관리자/API/보안 | 관리자 화면 직접 접근 차단 |
 | 2026-05-18 | 관리자 코드 취소 시 Supabase `revoked` 제약 미적용 환경 fallback 추가 | 관리자/API/Supabase/QA | migration 적용 전에도 코드를 사용 불가 상태로 전환 |
+| 2026-05-18 | 국가법령정보센터 `lawSearch.do` + `lawService.do` 조문 조회를 OpenAI 프롬프트에 주입 | 법령 API/분석 엔진/QA | 하드코딩 법령 목록 대신 실제 조회 조문 기반 분석 |

@@ -1,4 +1,5 @@
 import type { ContractCategory } from "../contracts/types";
+import type { LawReference } from "../contracts/types";
 
 export const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 export const DEFAULT_OPENAI_ANALYSIS_MODEL = "gpt-5.4-mini";
@@ -117,12 +118,21 @@ const categoryProfiles: Record<ContractCategory, CategoryPromptProfile> = {
  */
 export function buildContractAnalysisPrompt(
   redactedContractText: string,
-  category: ContractCategory = "housing-lease"
+  category: ContractCategory = "housing-lease",
+  legalReferences: LawReference[] = []
 ): string {
   const contractExcerpt = redactedContractText.slice(0, MAX_AI_CONTRACT_TEXT_CHARS);
   const profile = categoryProfiles[category];
 
-  const lawsBlock = profile.primaryLaws.map((law, index) => `  ${index + 1}. ${law}`).join("\n");
+  const liveLawReferences = legalReferences.filter((reference) => reference.source === "law-api").slice(0, 12);
+  const lawsIntro =
+    liveLawReferences.length > 0
+      ? "[국가법령정보센터 API에서 조회한 현재 법령 조문]"
+      : "[검토 시 반드시 인용해야 하는 핵심 법령]";
+  const lawsBlock =
+    liveLawReferences.length > 0
+      ? liveLawReferences.map(formatLiveLawReference).join("\n")
+      : profile.primaryLaws.map((law, index) => `  ${index + 1}. ${law}`).join("\n");
   const focusBlock = profile.focusPoints.map((point) => `  - ${point}`).join("\n");
 
   return [
@@ -130,7 +140,7 @@ export function buildContractAnalysisPrompt(
     `당신은 대한민국에서 15년간 ${profile.expertise}를 전문으로 활동해 온 변호사입니다.`,
     `오늘은 의뢰인이 가져온 ${profile.contractDescription}를 검토하여, 법무법인 검토의견서 수준의 한국어 리포트를 작성합니다.`,
     "",
-    "[검토 시 반드시 인용해야 하는 핵심 법령]",
+    lawsIntro,
     lawsBlock,
     "",
     "[이 계약 유형에서 반드시 짚어야 할 체크포인트]",
@@ -178,4 +188,19 @@ export function buildContractAnalysisPrompt(
     contractExcerpt,
     "----- 계약서 끝 -----"
   ].join("\n");
+}
+
+function formatLiveLawReference(reference: LawReference, index: number): string {
+  const label = [reference.title, reference.article].filter(Boolean).join(" ");
+  const lines = [`  ${index + 1}. ${label}`];
+
+  if (reference.excerpt) {
+    lines.push(`     조문 원문: ${reference.excerpt}`);
+  }
+
+  if (reference.lastChecked) {
+    lines.push(`     조회 시각: ${reference.lastChecked}`);
+  }
+
+  return lines.join("\n");
 }

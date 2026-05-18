@@ -9,44 +9,45 @@ import {
 
 interface LawApiDocument {
   title: string;
+  id?: string;
+  mst?: string;
   url?: string;
 }
 
-export async function fetchHousingLeaseLawReferences(): Promise<LawReference[]> {
-  const oc = process.env.LAW_API_OC;
-  if (!oc) {
-    return housingLeaseLawReferences;
-  }
-
-  const results = await Promise.allSettled([
-    searchLawApi("주택임대차보호법", oc),
-    searchLawApi("민법 임대차", oc),
-    searchLawApi("공인중개사법", oc)
-  ]);
-
-  const documents = results
-    .filter((result): result is PromiseFulfilledResult<LawApiDocument[]> => result.status === "fulfilled")
-    .flatMap((result) => result.value);
-
-  if (documents.length === 0) {
-    return housingLeaseLawReferences;
-  }
-
-  const checkedAt = new Date().toISOString();
-  return documents.map((document) => ({
-    title: document.title,
-    source: "law-api",
-    url: document.url,
-    lastChecked: checkedAt
-  }));
+interface LawApiQuery {
+  query: string;
+  articles: string[];
 }
 
-const categoryQueries: Record<ContractCategory, string[]> = {
-  "housing-lease": ["주택임대차보호법", "민법 임대차", "공인중개사법"],
-  labor: ["근로기준법", "최저임금법", "근로자퇴직급여 보장법"],
-  wedding: ["소비자기본법", "약관의 규제에 관한 법률"],
-  interior: ["건설산업기본법", "민법 도급", "소비자기본법"],
-  freelance: ["민법 위임", "저작권법", "하도급거래 공정화에 관한 법률"]
+export async function fetchHousingLeaseLawReferences(): Promise<LawReference[]> {
+  return fetchLawReferencesForCategory("housing-lease");
+}
+
+const categoryQueries: Record<ContractCategory, LawApiQuery[]> = {
+  "housing-lease": [
+    { query: "주택임대차보호법", articles: ["4", "3", "6", "6의3", "7"] },
+    { query: "민법 임대차", articles: ["398", "623", "626"] },
+    { query: "공인중개사법", articles: ["25", "32"] }
+  ],
+  labor: [
+    { query: "근로기준법", articles: ["17", "20", "50", "53", "54", "56", "60"] },
+    { query: "최저임금법", articles: ["6"] },
+    { query: "근로자퇴직급여 보장법", articles: ["4", "8"] }
+  ],
+  wedding: [
+    { query: "소비자기본법", articles: ["19", "55"] },
+    { query: "약관의 규제에 관한 법률", articles: ["6", "8", "9"] }
+  ],
+  interior: [
+    { query: "건설산업기본법", articles: ["16", "28"] },
+    { query: "민법 도급", articles: ["664", "665", "667", "670"] },
+    { query: "소비자기본법", articles: ["19"] }
+  ],
+  freelance: [
+    { query: "민법 위임", articles: ["680", "684", "686"] },
+    { query: "저작권법", articles: ["45", "46"] },
+    { query: "하도급거래 공정화에 관한 법률", articles: ["3", "13", "25"] }
+  ]
 };
 
 function fallbackReferencesForCategory(category: ContractCategory): LawReference[] {
@@ -82,22 +83,51 @@ export async function fetchLawReferencesForCategory(category: ContractCategory):
     return fallback;
   }
 
-  const results = await Promise.allSettled(queries.map((query) => searchLawApi(query, oc)));
-  const documents = results
-    .filter((result): result is PromiseFulfilledResult<LawApiDocument[]> => result.status === "fulfilled")
-    .flatMap((result) => result.value);
+  const results = await Promise.allSettled(queries.map((query) => fetchLawReferencesForQuery(query, oc)));
+  const references = dedupeLawReferences(
+    results
+      .filter((result): result is PromiseFulfilledResult<LawReference[]> => result.status === "fulfilled")
+      .flatMap((result) => result.value)
+  );
 
-  if (documents.length === 0) {
+  if (references.length === 0) {
     return fallback;
   }
 
+  return references;
+}
+
+async function fetchLawReferencesForQuery(query: LawApiQuery, oc: string): Promise<LawReference[]> {
+  const documents = await searchLawApi(query.query, oc);
   const checkedAt = new Date().toISOString();
-  return documents.map((document) => ({
-    title: document.title,
-    source: "law-api",
-    url: document.url,
-    lastChecked: checkedAt
-  }));
+  const references = await Promise.allSettled(
+    documents.map((document) => fetchLawDocumentReferences(document, query.articles, oc, checkedAt))
+  );
+
+  return references
+    .filter((result): result is PromiseFulfilledResult<LawReference[]> => result.status === "fulfilled")
+    .flatMap((result) => result.value);
+}
+
+async function fetchLawDocumentReferences(
+  document: LawApiDocument,
+  articles: string[],
+  oc: string,
+  checkedAt: string
+): Promise<LawReference[]> {
+  if (!document.id && !document.mst && !document.title) {
+    return [toLawReference(document, checkedAt)];
+  }
+
+  const articleResults = await Promise.allSettled(
+    articles.map((articleNumber) => fetchLawArticle(document, articleNumber, oc, checkedAt))
+  );
+  const articleReferences = articleResults
+    .filter((result): result is PromiseFulfilledResult<LawReference | null> => result.status === "fulfilled")
+    .map((result) => result.value)
+    .filter((reference): reference is LawReference => reference !== null);
+
+  return articleReferences.length > 0 ? articleReferences : [toLawReference(document, checkedAt)];
 }
 
 async function searchLawApi(query: string, oc: string): Promise<LawApiDocument[]> {
@@ -105,7 +135,8 @@ async function searchLawApi(query: string, oc: string): Promise<LawApiDocument[]
     OC: oc,
     target: "law",
     type: "JSON",
-    query
+    query,
+    display: "1"
   });
 
   const response = await fetch(`https://www.law.go.kr/DRF/lawSearch.do?${params.toString()}`, {
@@ -123,6 +154,55 @@ async function searchLawApi(query: string, oc: string): Promise<LawApiDocument[]
   return parseLawSearchPayload(payload);
 }
 
+async function fetchLawArticle(
+  document: LawApiDocument,
+  articleNumber: string,
+  oc: string,
+  checkedAt: string
+): Promise<LawReference | null> {
+  const params = new URLSearchParams({
+    OC: oc,
+    target: "lawjosub",
+    type: "JSON",
+    JO: toLawApiArticleNumber(articleNumber)
+  });
+
+  if (document.id) {
+    params.set("ID", document.id);
+  } else if (document.mst) {
+    params.set("MST", document.mst);
+  } else {
+    throw new Error("Law API article request requires ID or MST.");
+  }
+
+  const response = await fetch(`https://www.law.go.kr/DRF/lawService.do?${params.toString()}`, {
+    headers: {
+      Accept: "application/json"
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Law API article request failed: ${response.status}`);
+  }
+
+  const payload = (await response.json()) as Record<string, unknown>;
+  const article = parseLawArticlePayload(payload, articleNumber);
+
+  if (!article) {
+    return null;
+  }
+
+  return {
+    title: document.title,
+    article: article.title,
+    excerpt: article.excerpt,
+    source: "law-api",
+    url: document.url,
+    lastChecked: checkedAt
+  };
+}
+
 function parseLawSearchPayload(payload: Record<string, unknown>): LawApiDocument[] {
   const searchRoot = payload.LawSearch as Record<string, unknown> | undefined;
   const rawLaw = searchRoot?.law ?? searchRoot?.["법령"] ?? payload.law;
@@ -136,13 +216,150 @@ function parseLawSearchPayload(payload: Record<string, unknown>): LawApiDocument
 
       const record = row as Record<string, unknown>;
       const title = String(record.법령명한글 ?? record.lawName ?? record.법령명 ?? "");
-      const url = record.법령상세링크 ? `https://www.law.go.kr${String(record.법령상세링크)}` : undefined;
+      const url = createPublicLawUrl(title, record.법령상세링크);
+      const id = optionalString(record.법령ID ?? record.lawId ?? record.ID);
+      const mst = optionalString(record.법령일련번호 ?? record.MST ?? record.mst ?? record.lsiSeq);
 
       if (!title) {
         return null;
       }
 
-      return url ? { title, url } : { title };
+      return {
+        title,
+        ...(id ? { id } : {}),
+        ...(mst ? { mst } : {}),
+        ...(url ? { url } : {})
+      };
     })
     .filter((document): document is LawApiDocument => document !== null);
+}
+
+function parseLawArticlePayload(
+  payload: Record<string, unknown>,
+  fallbackArticleNumber: string
+): { title: string; excerpt: string } | null {
+  const units = collectArticleUnits(payload);
+  const unit = units[0];
+
+  if (!unit) {
+    const fallbackText = excerptText(collectContentTexts(payload).join(" "));
+    return fallbackText
+      ? {
+          title: `제${fallbackArticleNumber}조`,
+          excerpt: fallbackText
+        }
+      : null;
+  }
+
+  const rawNumber = optionalString(unit.조문번호 ?? unit.articleNo) ?? fallbackArticleNumber;
+  const rawTitle = optionalString(unit.조문제목 ?? unit.articleTitle);
+  const content = excerptText(collectContentTexts(unit).join(" "));
+
+  if (!content) {
+    return null;
+  }
+
+  return {
+    title: [`제${rawNumber}조`, rawTitle].filter(Boolean).join(" "),
+    excerpt: content
+  };
+}
+
+function collectArticleUnits(input: unknown): Record<string, unknown>[] {
+  if (Array.isArray(input)) {
+    return input.flatMap(collectArticleUnits);
+  }
+
+  if (!input || typeof input !== "object") {
+    return [];
+  }
+
+  const record = input as Record<string, unknown>;
+  const current = record.조문내용 || record.articleContent ? [record] : [];
+
+  return [
+    ...current,
+    ...Object.entries(record).flatMap(([key, value]) => (key === "조문단위" ? toRecordArray(value) : collectArticleUnits(value)))
+  ];
+}
+
+function toRecordArray(value: unknown): Record<string, unknown>[] {
+  const rows = Array.isArray(value) ? value : value ? [value] : [];
+  return rows.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object");
+}
+
+function collectContentTexts(input: unknown): string[] {
+  if (Array.isArray(input)) {
+    return input.flatMap(collectContentTexts);
+  }
+
+  if (!input || typeof input !== "object") {
+    return [];
+  }
+
+  const record = input as Record<string, unknown>;
+  const directTexts = Object.entries(record)
+    .filter(([key, value]) => (key.endsWith("내용") || key.endsWith("Content")) && typeof value === "string")
+    .map(([, value]) => String(value));
+
+  return [...directTexts, ...Object.values(record).flatMap(collectContentTexts)];
+}
+
+function toLawReference(document: LawApiDocument, checkedAt: string): LawReference {
+  return {
+    title: document.title,
+    source: "law-api",
+    url: document.url,
+    lastChecked: checkedAt
+  };
+}
+
+function toLawApiArticleNumber(articleNumber: string): string {
+  const normalized = articleNumber.trim();
+  const match = normalized.match(/^(\d+)(?:의(\d+))?$/);
+
+  if (!match) {
+    return normalized;
+  }
+
+  const main = match[1]?.padStart(4, "0") ?? "0000";
+  const branch = match[2]?.padStart(2, "0") ?? "00";
+  return `${main}${branch}`;
+}
+
+function excerptText(value: string): string {
+  return value.replace(/\s+/g, " ").trim().slice(0, 500);
+}
+
+function optionalString(value: unknown): string | undefined {
+  const text = typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+  return text || undefined;
+}
+
+function createPublicLawUrl(title: string, rawLink: unknown): string | undefined {
+  if (!title) {
+    return undefined;
+  }
+
+  const link = optionalString(rawLink);
+  if (!link || link.includes("OC=") || link.includes("/DRF/")) {
+    return `https://www.law.go.kr/법령/${title}`;
+  }
+
+  return link.startsWith("http") ? link : `https://www.law.go.kr${link}`;
+}
+
+function dedupeLawReferences(references: LawReference[]): LawReference[] {
+  const seen = new Set<string>();
+  const deduped: LawReference[] = [];
+
+  for (const reference of references) {
+    const key = [reference.title, reference.article || "", reference.excerpt || ""].join("|");
+    if (!seen.has(key)) {
+      seen.add(key);
+      deduped.push(reference);
+    }
+  }
+
+  return deduped;
 }

@@ -68,6 +68,42 @@ describe("maybeEnhanceWithAi", () => {
     expect(result.summary.missingCount).toBe(baseAnalysis.summary.missingCount);
   });
 
+  it("injects live law API article excerpts into the OpenAI prompt", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-openai-key");
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ output_text: "Live law checked." }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await maybeEnhanceWithAi(
+      {
+        ...baseAnalysis,
+        legalReferences: [
+          {
+            title: "주택임대차보호법",
+            article: "제4조 임대차기간 등",
+            excerpt: "기간을 정하지 아니하거나 2년 미만으로 정한 임대차는 그 기간을 2년으로 본다.",
+            source: "law-api",
+            url: "https://www.law.go.kr/법령/주택임대차보호법",
+            lastChecked: "2026-05-18T00:00:00.000Z"
+          }
+        ]
+      },
+      "제1조 임대차 기간은 1년으로 한다."
+    );
+
+    const [, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(requestInit.body as string) as { input: string };
+
+    expect(body.input).toContain("국가법령정보센터 API");
+    expect(body.input).toContain("주택임대차보호법 제4조 임대차기간 등");
+    expect(body.input).toContain("기간을 정하지 아니하거나 2년 미만으로 정한 임대차");
+  });
+
   it("keeps deterministic rule counts and provider when OpenAI fails", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-openai-key");
     vi.stubGlobal(

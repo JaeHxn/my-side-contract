@@ -14,6 +14,7 @@ const lawReferenceSchema = z
   .object({
     title: z.string().min(1),
     article: z.string().optional(),
+    excerpt: z.string().optional(),
     source: z.enum(["law-api", "built-in"]),
     url: z.string().url().optional(),
     lastChecked: z.string().optional()
