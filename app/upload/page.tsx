@@ -1,6 +1,24 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { UploadAnalyzer } from "@/components/upload-analyzer";
+
+export const metadata: Metadata = {
+  title: "계약서 분석하기",
+  description:
+    "전월세·근로·인테리어·프리랜서 계약서를 업로드하거나 붙여넣으면 AI가 법령 근거와 함께 불리한 조항을 즉시 분석합니다. PDF·사진 OCR 지원.",
+  alternates: {
+    canonical: "/upload",
+  },
+  openGraph: {
+    title: "계약서 분석하기 | 내편계약서",
+    description:
+      "계약서를 업로드하면 AI가 법령 근거와 함께 불리한 조항을 즉시 찾아드립니다.",
+  },
+  robots: {
+    index: false,
+  },
+};
 
 export default function UploadPage() {
   return (

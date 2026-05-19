@@ -508,6 +508,59 @@ export default function HomePage() {
 
       <LegalDisclaimer />
 
+      {/* FAQ — GEO: AI 검색 엔진이 인용하기 쉬운 Q&A 구조 */}
+      <section className="mx-auto max-w-6xl px-5 py-14 sm:px-6 lg:px-8" id="faq">
+        <div className="mb-10 max-w-2xl">
+          <p className="mb-2 text-sm font-black text-sage">자주 묻는 질문</p>
+          <h2 className="text-3xl font-black leading-tight text-ink">내편계약서에 대해 궁금하신가요</h2>
+        </div>
+        <div className="divide-y divide-ink/8">
+          {[
+            {
+              q: "내편계약서가 무엇인가요?",
+              a: "내편계약서는 전월세, 근로, 인테리어, 프리랜서 계약서를 업로드하면 AI가 주택임대차보호법, 근로기준법 등 실제 법령과 대조하여 불리한 조항, 불법 가능 문구, 빠진 보호 조항을 즉시 분석해주는 서비스입니다. 변호사 없이도 계약서의 위험 조항을 쉽게 파악할 수 있습니다.",
+            },
+            {
+              q: "어떤 계약서를 분석할 수 있나요?",
+              a: "전월세(임대차) 계약서, 근로 계약서, 인테리어(도급) 계약서, 프리랜서 계약서를 지원합니다. TXT, PDF, 사진(JPG/PNG) 파일을 업로드하거나 텍스트를 직접 붙여넣어 분석할 수 있으며, 최대 50,000자까지 지원합니다.",
+            },
+            {
+              q: "분석 결과를 법적 효력으로 사용할 수 있나요?",
+              a: "아닙니다. 내편계약서의 분석 결과는 AI 기반의 참고용 정보이며 법적 효력이 없습니다. 법령 해석은 구체적인 사실관계와 맥락에 따라 달라질 수 있으므로, 중요한 계약은 반드시 변호사, 노무사 등 법률 전문가와 상담하세요.",
+            },
+            {
+              q: "어떤 법령을 기준으로 분석하나요?",
+              a: "국가법령정보센터(law.go.kr)의 공식 법령을 실시간으로 참조합니다. 전월세는 주택임대차보호법·민법, 근로계약은 근로기준법·최저임금법·근로자퇴직급여보장법, 인테리어는 민법(도급)·건설산업기본법, 프리랜서는 저작권법·민법(위임·도급)을 기준으로 합니다.",
+            },
+            {
+              q: "분석 코드는 어떻게 받나요?",
+              a: "계좌이체 후 운영자가 입금을 확인하면 문자(SMS)로 6자리 분석 코드가 발송됩니다. 보통 수 분 이내에 받을 수 있습니다.",
+            },
+            {
+              q: "계약서 분석에 얼마나 걸리나요?",
+              a: "코드 입력 후 AI 분석은 보통 10~30초 이내에 완료됩니다. PDF·사진 파일은 OCR 텍스트 추출 과정이 추가되어 약간 더 소요될 수 있습니다.",
+            },
+            {
+              q: "계약서에서 위험 조항이 발견되면 어떻게 되나요?",
+              a: "위험 조항마다 실제 법 조항 번호, 위법 이유, 삭제·수정 권고 문구를 함께 제시합니다. 🔴 위험(불법 가능), 🟡 불리한 조항, ⚠️ 빠진 조항, 🟢 정상 조항으로 등급을 나누어 카드 형태로 보여드립니다.",
+            },
+          ].map(({ q, a }) => (
+            <details
+              className="group py-5 open:pb-6"
+              key={q}
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+                <h3 className="text-base font-black text-ink">{q}</h3>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-ink/15 text-ink/50 transition group-open:rotate-45 group-open:border-sage/30 group-open:text-sage">
+                  +
+                </span>
+              </summary>
+              <p className="mt-4 text-sm leading-7 text-ink/68">{a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
       <footer className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-8 text-sm font-semibold text-ink/50 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <p>내편계약서</p>
         <p>전월세·근로·인테리어·프리랜서 계약서 분석 서비스</p>
