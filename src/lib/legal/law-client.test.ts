@@ -31,7 +31,75 @@ describe("fetchHousingLeaseLawReferences", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(fetchHousingLeaseLawReferences()).resolves.toEqual(housingLeaseLawReferences);
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(9);
+  });
+
+  it("retries transient law API failures before falling back", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-19T00:00:00.000Z"));
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+
+      if (url.includes("lawSearch.do") && url.includes("query=%EC%A3%BC%ED%83%9D")) {
+        const matchingSearchCalls = fetchMock.mock.calls.filter(([calledInput]) =>
+          String(calledInput).includes("query=%EC%A3%BC%ED%83%9D")
+        ).length;
+
+        if (matchingSearchCalls === 1) {
+          throw new Error("temporary gateway failure");
+        }
+
+        return new Response(
+          JSON.stringify({
+            LawSearch: {
+              law: [
+                {
+                  법령명한글: "주택임대차보호법",
+                  법령ID: "001234",
+                  법령상세링크: "/법령/주택임대차보호법"
+                }
+              ]
+            }
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        );
+      }
+
+      if (url.includes("lawSearch.do")) {
+        return new Response(JSON.stringify({ LawSearch: { law: [] } }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+
+      if (url.includes("lawService.do")) {
+        return new Response(
+          JSON.stringify({
+            조문번호: "4",
+            조문제목: "임대차기간 등",
+            조문내용: "제4조(임대차기간 등) 기간을 정하지 아니하거나 2년 미만으로 정한 임대차는 그 기간을 2년으로 본다."
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        );
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    vi.stubEnv("LAW_API_OC", "test-oc");
+    vi.stubGlobal("fetch", fetchMock);
+
+    const references = await fetchLawReferencesForCategory("housing-lease");
+
+    expect(references[0]).toMatchObject({
+      title: "주택임대차보호법",
+      article: expect.stringContaining("제4조"),
+      excerpt: expect.stringContaining("2년 미만으로 정한 임대차"),
+      source: "law-api",
+      lastChecked: "2026-05-19T00:00:00.000Z"
+    });
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("query=%EC%A3%BC%ED%83%9D"))).toHaveLength(2);
   });
 
   it("parses successful law API search rows while tolerating partial request failures", async () => {

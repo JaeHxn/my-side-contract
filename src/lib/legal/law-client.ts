@@ -19,6 +19,8 @@ interface LawApiQuery {
   articles: string[];
 }
 
+const LAW_API_MAX_ATTEMPTS = 3;
+
 export async function fetchHousingLeaseLawReferences(): Promise<LawReference[]> {
   return fetchLawReferencesForCategory("housing-lease");
 }
@@ -139,18 +141,10 @@ async function searchLawApi(query: string, oc: string): Promise<LawApiDocument[]
     display: "1"
   });
 
-  const response = await fetch(`https://www.law.go.kr/DRF/lawSearch.do?${params.toString()}`, {
-    headers: {
-      Accept: "application/json"
-    },
-    cache: "no-store"
-  });
-
-  if (!response.ok) {
-    throw new Error(`Law API request failed: ${response.status}`);
-  }
-
-  const payload = (await response.json()) as Record<string, unknown>;
+  const payload = await fetchLawApiJson(
+    `https://www.law.go.kr/DRF/lawSearch.do?${params.toString()}`,
+    "Law API request failed"
+  );
   return parseLawSearchPayload(payload);
 }
 
@@ -175,18 +169,10 @@ async function fetchLawArticle(
     throw new Error("Law API article request requires ID or MST.");
   }
 
-  const response = await fetch(`https://www.law.go.kr/DRF/lawService.do?${params.toString()}`, {
-    headers: {
-      Accept: "application/json"
-    },
-    cache: "no-store"
-  });
-
-  if (!response.ok) {
-    throw new Error(`Law API article request failed: ${response.status}`);
-  }
-
-  const payload = (await response.json()) as Record<string, unknown>;
+  const payload = await fetchLawApiJson(
+    `https://www.law.go.kr/DRF/lawService.do?${params.toString()}`,
+    "Law API article request failed"
+  );
   const article = parseLawArticlePayload(payload, articleNumber);
 
   if (!article) {
@@ -201,6 +187,35 @@ async function fetchLawArticle(
     url: document.url,
     lastChecked: checkedAt
   };
+}
+
+async function fetchLawApiJson(url: string, errorMessage: string): Promise<Record<string, unknown>> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < LAW_API_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/json"
+        },
+        cache: "no-store"
+      });
+
+      if (!response.ok) {
+        throw new Error(`${errorMessage}: ${response.status}`);
+      }
+
+      return (await response.json()) as Record<string, unknown>;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError instanceof Error) {
+    throw lastError;
+  }
+
+  throw new Error(errorMessage);
 }
 
 function parseLawSearchPayload(payload: Record<string, unknown>): LawApiDocument[] {
