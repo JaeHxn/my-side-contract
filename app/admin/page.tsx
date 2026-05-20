@@ -9,7 +9,7 @@ import {
 import { AccessCodeIssuer } from "./AccessCodeIssuer";
 import { AdminLoginForm } from "./AdminLoginForm";
 import { AdminLogoutButton } from "./AdminLogoutButton";
-import { PaymentRequestList } from "./PaymentRequestList";
+import PaymentRequestList from "./PaymentRequestList";
 
 export const metadata = {
   title: "관리자 코드 발급 | 내편계약서"

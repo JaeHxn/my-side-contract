@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerConfig, SupabaseConfigError } from "@/src/lib/supabase/server";
 
 const PRICE = 3900;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -11,13 +12,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
 
-  const { depositorName, phone } = body as Record<string, unknown>;
+  const { depositorName, email, method } = body as Record<string, unknown>;
 
   if (typeof depositorName !== "string" || depositorName.trim().length < 1) {
     return NextResponse.json({ error: "입금자명을 입력해 주세요." }, { status: 400 });
   }
-  if (typeof phone !== "string" || !/^[0-9]{10,11}$/.test(phone.replace(/-/g, ""))) {
-    return NextResponse.json({ error: "올바른 휴대폰번호를 입력해 주세요. (숫자만, 10~11자리)" }, { status: 400 });
+  if (typeof email !== "string" || !EMAIL_RE.test(email.trim())) {
+    return NextResponse.json({ error: "올바른 이메일 주소를 입력해 주세요." }, { status: 400 });
   }
 
   let config;
@@ -30,7 +31,6 @@ export async function POST(request: Request) {
     throw e;
   }
 
-  const cleanPhone = phone.replace(/-/g, "");
   const url = new URL(`${config.url}/rest/v1/payment_requests`);
 
   const response = await fetch(url, {
@@ -43,7 +43,8 @@ export async function POST(request: Request) {
     },
     body: JSON.stringify({
       depositor_name: depositorName.trim(),
-      phone: cleanPhone,
+      email: email.trim().toLowerCase(),
+      method: method === "kakaopay" ? "kakaopay" : "bank",
       amount: PRICE,
       status: "pending",
     }),

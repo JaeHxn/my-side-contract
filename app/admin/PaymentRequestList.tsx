@@ -1,266 +1,229 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { CheckCircle2, XCircle, Clock, Copy } from "lucide-react";
-
-type PaymentStatus = "pending" | "confirmed" | "rejected";
+import { useEffect, useState } from "react";
+import { CheckCircle2, XCircle, RefreshCw, Mail, Loader2 } from "lucide-react";
 
 interface PaymentRequest {
   id: string;
-  name: string;
-  contact: string;
-  method: "kakaopay" | "bank";
-  status: PaymentStatus;
-  access_code: string | null;
+  depositor_name: string;
+  email: string | null;
+  method: "kakaopay" | "bank" | null;
+  amount: number;
+  status: "pending" | "confirmed" | "rejected";
+  issued_code: string | null;
   created_at: string;
-  updated_at: string;
 }
 
-type StatusFilter = "pending" | "confirmed" | "rejected" | "all";
-
-const statusFilters: Array<{ value: StatusFilter; label: string }> = [
-  { value: "pending", label: "대기중" },
-  { value: "confirmed", label: "확인완료" },
-  { value: "rejected", label: "거절됨" },
-  { value: "all", label: "전체" },
-];
-
-function StatusBadge({ status }: { status: PaymentStatus }) {
-  const styles: Record<PaymentStatus, string> = {
-    pending: "bg-yellow-100 text-yellow-800",
-    confirmed: "bg-green-100 text-green-800",
-    rejected: "bg-red-100 text-red-800",
-  };
-  const labels: Record<PaymentStatus, string> = {
-    pending: "대기중",
-    confirmed: "확인완료",
-    rejected: "거절됨",
-  };
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles[status]}`}
-    >
-      {labels[status]}
-    </span>
-  );
+interface ActionResult {
+  ok?: boolean;
+  code?: string;
+  emailSent?: boolean;
+  emailError?: string | null;
+  error?: string;
+  message?: string;
 }
 
-export function PaymentRequestList() {
+type FilterStatus = "all" | "pending" | "confirmed" | "rejected";
+
+const STATUS_LABEL: Record<string, string> = {
+  pending: "대기",
+  confirmed: "확인",
+  rejected: "거절",
+};
+const STATUS_CLASS: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-800",
+  confirmed: "bg-green-100 text-green-700",
+  rejected: "bg-red-100 text-red-600",
+};
+const METHOD_LABEL: Record<string, string> = {
+  kakaopay: "카카오페이",
+  bank: "계좌이체",
+};
+
+export default function PaymentRequestList() {
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
-  const [filter, setFilter] = useState<StatusFilter>("pending");
-  const [isLoading, setIsLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter] = useState<FilterStatus>("pending");
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ id: string; message: string; isError: boolean } | null>(null);
 
-  const fetchRequests = useCallback(async () => {
+  async function load() {
     setIsLoading(true);
-    setError("");
     try {
-      const params = filter !== "all" ? `?status=${filter}` : "";
-      const res = await fetch(`/api/admin/payment-requests${params}`, {
-        cache: "no-store",
+      const res = await fetch(`/api/admin/payment-requests?status=${filter}`, {
+        credentials: "include",
       });
-      if (!res.ok) throw new Error("목록 조회 실패");
-      const data = await res.json();
-      setRequests(data.requests ?? []);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
+      if (res.ok) {
+        const data = await res.json() as { paymentRequests?: PaymentRequest[] };
+        setRequests(data.paymentRequests ?? []);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [filter]);
+  }
 
-  useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
+  useEffect(() => { void load(); }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleAction(id: string, action: "confirmed" | "rejected") {
-    setActionLoading(id);
+  function showToast(id: string, message: string, isError = false) {
+    setToast({ id, message, isError });
+    setTimeout(() => setToast(null), 5000);
+  }
+
+  async function handleAction(req: PaymentRequest, action: "confirm" | "reject") {
+    setProcessingId(req.id);
     try {
       const res = await fetch("/api/admin/payment-requests", {
         method: "PATCH",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status: action }),
+        body: JSON.stringify({ id: req.id, action }),
       });
+      const data = await res.json() as ActionResult;
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d?.error ?? "처리 실패");
+        showToast(req.id, data.message ?? "오류가 발생했습니다.", true);
+        return;
       }
-      await fetchRequests();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "처리 중 오류");
+      if (action === "confirm") {
+        const emailMsg = data.emailSent
+          ? `✓ 이메일 발송 완료 (${req.email})`
+          : data.emailError
+          ? `⚠ 코드 발급됨(${data.code}) — 이메일 실패: ${data.emailError}`
+          : `코드 발급됨: ${data.code}`;
+        showToast(req.id, emailMsg, !data.emailSent);
+      } else {
+        showToast(req.id, "거절 처리 완료");
+      }
+      await load();
     } finally {
-      setActionLoading(null);
+      setProcessingId(null);
     }
-  }
-
-  function copyCode(code: string) {
-    navigator.clipboard.writeText(code).then(() => {
-      setCopiedCode(code);
-      setTimeout(() => setCopiedCode(null), 2000);
-    });
-  }
-
-  function formatDate(iso: string) {
-    return new Date(iso).toLocaleString("ko-KR", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   }
 
   return (
     <section className="rounded-3xl border border-ink/10 bg-white p-6 shadow-panel">
-      <div className="mb-6 flex items-center justify-between">
+      {/* 헤더 */}
+      <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-bold text-ink">결제 신청 목록</h2>
         <button
-          onClick={fetchRequests}
-          className="rounded-xl border border-ink/10 px-3 py-1.5 text-xs font-semibold text-ink/60 transition hover:bg-paper"
+          onClick={() => void load()}
+          disabled={isLoading}
+          className="flex items-center gap-1.5 rounded-xl border border-ink/10 bg-paper px-3 py-2 text-xs font-semibold text-ink/60 transition hover:text-ink disabled:opacity-40"
         >
+          <RefreshCw className={`h-3 w-3 ${isLoading ? "animate-spin" : ""}`} />
           새로고침
         </button>
       </div>
 
-      {/* 상태 필터 */}
-      <div className="mb-5 flex gap-2 overflow-x-auto">
-        {statusFilters.map((f) => (
+      {/* 필터 탭 */}
+      <div className="mb-5 flex gap-1 rounded-xl border border-ink/10 bg-paper p-1">
+        {(["all", "pending", "confirmed", "rejected"] as FilterStatus[]).map((s) => (
           <button
-            key={f.value}
-            onClick={() => setFilter(f.value)}
-            className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
-              filter === f.value
-                ? "bg-ink text-white"
-                : "border border-ink/10 text-ink/60 hover:text-ink"
+            key={s}
+            onClick={() => setFilter(s)}
+            className={`flex-1 rounded-lg py-2 text-xs font-bold transition ${
+              filter === s ? "bg-ink text-white shadow" : "text-ink/50 hover:text-ink"
             }`}
           >
-            {f.label}
+            {s === "all" ? "전체" : STATUS_LABEL[s]}
           </button>
         ))}
       </div>
 
-      {error && (
-        <p className="mb-4 rounded-xl bg-red-50 px-4 py-2 text-sm text-danger">
-          {error}
-        </p>
-      )}
-
+      {/* 목록 */}
       {isLoading ? (
-        <div className="py-12 text-center text-sm text-ink/40">불러오는 중...</div>
-      ) : requests.length === 0 ? (
-        <div className="py-12 text-center text-sm text-ink/40">
-          해당 상태의 신청이 없습니다.
+        <div className="flex items-center justify-center py-10 text-ink/30">
+          <Loader2 className="h-5 w-5 animate-spin" />
         </div>
+      ) : requests.length === 0 ? (
+        <p className="py-10 text-center text-sm text-ink/30">신청 내역이 없습니다.</p>
       ) : (
-        <div className="flex flex-col gap-3">
-          {requests.map((req) => (
-            <div
-              key={req.id}
-              className="rounded-2xl border border-ink/8 bg-paper px-5 py-4"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-ink">{req.name}</span>
-                    <StatusBadge status={req.status} />
-                    <span className="text-xs text-ink/40">
-                      {req.method === "kakaopay" ? "카카오페이" : "계좌이체"}
-                    </span>
-                  </div>
-                  <p className="text-sm text-ink/60">{req.contact}</p>
-                  <p className="text-xs text-ink/40">{formatDate(req.created_at)}</p>
-                  {req.access_code && (
-                    <div className="mt-1 flex items-center gap-1.5">
-                      <span className="rounded-lg bg-sage/10 px-2 py-0.5 text-xs font-bold text-sage">
-                        {req.access_code}
-                      </span>
-                      <button
-                        onClick={() => copyCode(req.access_code!)}
-                        className="text-ink/40 transition hover:text-ink"
+        <ul className="space-y-3">
+          {requests.map((req) => {
+            const isPending = req.status === "pending";
+            const isProcessing = processingId === req.id;
+
+            return (
+              <li
+                key={req.id}
+                className="rounded-2xl border border-ink/8 bg-paper p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  {/* 정보 */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-ink">{req.depositor_name}</span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          STATUS_CLASS[req.status] ?? "bg-gray-100 text-gray-600"
+                        }`}
                       >
-                        {copiedCode === req.access_code ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-sage" />
+                        {STATUS_LABEL[req.status] ?? req.status}
+                      </span>
+                      {req.method && (
+                        <span className="rounded-full bg-sage/10 px-2 py-0.5 text-xs text-sage/70">
+                          {METHOD_LABEL[req.method] ?? req.method}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-1.5 text-sm text-ink/50">
+                      <Mail className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="truncate">{req.email ?? "이메일 없음"}</span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-3 text-xs text-ink/40">
+                      <span>{req.amount?.toLocaleString() ?? "?"}원</span>
+                      <span>{new Date(req.created_at).toLocaleString("ko-KR")}</span>
+                      {req.issued_code && (
+                        <span className="font-mono font-bold text-sage">
+                          코드: {req.issued_code}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 토스트 */}
+                    {toast?.id === req.id && (
+                      <p
+                        className={`mt-2 rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                          toast.isError
+                            ? "bg-red-50 text-danger"
+                            : "bg-green-50 text-green-700"
+                        }`}
+                      >
+                        {toast.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* 버튼 */}
+                  {isPending && (
+                    <div className="flex flex-shrink-0 flex-col gap-2">
+                      <button
+                        onClick={() => void handleAction(req, "confirm")}
+                        disabled={isProcessing}
+                        title="입금 확인 — 코드 자동 발급 + 이메일 발송"
+                        className="flex items-center gap-1.5 rounded-xl bg-sage/10 px-3 py-2 text-xs font-bold text-sage transition hover:bg-sage/20 disabled:opacity-50"
+                      >
+                        {isProcessing ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          <Copy className="h-3.5 w-3.5" />
+                          <CheckCircle2 className="h-3.5 w-3.5" />
                         )}
+                        확인
+                      </button>
+                      <button
+                        onClick={() => void handleAction(req, "reject")}
+                        disabled={isProcessing}
+                        className="flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-danger transition hover:bg-red-100 disabled:opacity-50"
+                      >
+                        <XCircle className="h-3.5 w-3.5" />
+                        거절
                       </button>
                     </div>
                   )}
                 </div>
-
-                {req.status === "pending" && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleAction(req.id, "confirmed")}
-                      disabled={actionLoading === req.id}
-                      className="flex items-center gap-1.5 rounded-xl bg-green-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-green-700 disabled:opacity-60"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      {actionLoading === req.id ? "처리중..." : "입금 확인"}
-                    </button>
-                    <button
-                      onClick={() => handleAction(req.id, "rejected")}
-                      disabled={actionLoading === req.id}
-                      className="flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-danger transition hover:bg-red-50 disabled:opacity-60"
-                    >
-                      <XCircle className="h-3.5 w-3.5" />
-                      거절
-                    </button>
-                  </div>
-                )}
-
-                {req.status === "confirmed" && (
-                  <span className="flex items-center gap-1 text-xs text-green-700">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    완료
-                  </span>
-                )}
-
-                {req.status === "rejected" && (
-                  <span className="flex items-center gap-1 text-xs text-danger">
-                    <XCircle className="h-3.5 w-3.5" />
-                    거절됨
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 대기중 카운트 표시 */}
-      {filter === "all" && (
-        <div className="mt-4 border-t border-ink/5 pt-4">
-          <div className="flex gap-4 text-xs text-ink/50">
-            <span>
-              대기:{" "}
-              <strong className="text-yellow-700">
-                {requests.filter((r) => r.status === "pending").length}
-              </strong>
-            </span>
-            <span>
-              완료:{" "}
-              <strong className="text-green-700">
-                {requests.filter((r) => r.status === "confirmed").length}
-              </strong>
-            </span>
-            <span>
-              거절:{" "}
-              <strong className="text-danger">
-                {requests.filter((r) => r.status === "rejected").length}
-              </strong>
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* 대기 아이콘 */}
-      {filter !== "all" && requests.some((r) => r.status === "pending") && (
-        <div className="mt-4 flex items-center gap-1.5 text-xs text-yellow-700">
-          <Clock className="h-3.5 w-3.5" />
-          대기 중인 신청이 있습니다.
-        </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </section>
   );

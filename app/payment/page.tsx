@@ -10,6 +10,8 @@ const ACCOUNT_NUMBER = process.env.NEXT_PUBLIC_PAYMENT_ACCOUNT ?? "계좌번호 
 const ACCOUNT_HOLDER = process.env.NEXT_PUBLIC_PAYMENT_HOLDER ?? "예금주 미설정";
 const PRICE = "3,900";
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 type PayMethod = "kakaopay" | "bank";
 
 function KakaoPaySection() {
@@ -32,9 +34,9 @@ function KakaoPaySection() {
         <ArrowRight className="h-4 w-4" />
       </a>
       <p className="text-center text-xs text-ink/50">
-        결제 완료 후 아래 양식을 작성해 제출해 주세요.
+        결제 후 아래 양식을 작성해 제출해 주세요.
         <br />
-        최대 1시간 이내 이용 코드를 발급해 드립니다.
+        이메일로 이용 코드를 보내드립니다.
       </p>
     </div>
   );
@@ -72,18 +74,18 @@ function BankSection({
       </div>
       <div className="rounded-xl bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
         <strong>이체 금액:</strong> {PRICE}원<br />
-        <span className="text-xs">이름 또는 연락처 끝 4자리를 메모란에 기입해 주세요.</span>
+        <span className="text-xs">입금자명을 아래에 기재해 주세요.</span>
       </div>
       <p className="text-center text-xs text-ink/50">
-        입금 확인 후 아래 양식을 작성해 제출해 주세요.
+        입금 확인 후 이메일로 이용 코드를 보내드립니다.
         <br />
-        최대 1시간 이내 이용 코드를 발급해 드립니다.
+        최대 1시간 이내 발송됩니다.
       </p>
     </div>
   );
 }
 
-function SuccessView({ code }: { code?: string }) {
+function SuccessView() {
   return (
     <div className="flex flex-col items-center gap-6 py-12 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-sage/10">
@@ -94,15 +96,12 @@ function SuccessView({ code }: { code?: string }) {
         <p className="mt-2 text-sm text-ink/60">
           입금 확인 후 최대 1시간 이내에
           <br />
-          이용 코드를 문자/이메일로 보내드립니다.
+          입력하신 이메일로 이용 코드를 발송합니다.
         </p>
       </div>
-      {code && (
-        <div className="rounded-2xl border-2 border-dashed border-sage/30 bg-sage/5 px-8 py-4">
-          <p className="text-xs text-sage/70">이용 코드</p>
-          <p className="mt-1 text-2xl font-black tracking-widest text-sage">{code}</p>
-        </div>
-      )}
+      <p className="rounded-xl bg-sage/5 px-5 py-3 text-xs text-ink/50">
+        스팸함도 확인해 주세요
+      </p>
       <Link
         href="/"
         className="inline-flex items-center justify-center rounded-xl border border-ink/10 bg-white px-6 py-3 text-sm font-bold text-ink transition hover:border-sage/40 hover:text-sage"
@@ -118,8 +117,8 @@ export default function PaymentPage() {
   const [method, setMethod] = useState<PayMethod>(
     hasKakaoPay ? "kakaopay" : "bank"
   );
-  const [name, setName] = useState("");
-  const [contact, setContact] = useState("");
+  const [depositorName, setDepositorName] = useState("");
+  const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -127,8 +126,12 @@ export default function PaymentPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !contact.trim()) {
-      setError("이름과 연락처를 모두 입력해 주세요.");
+    if (!depositorName.trim()) {
+      setError("입금자명을 입력해 주세요.");
+      return;
+    }
+    if (!EMAIL_RE.test(email.trim())) {
+      setError("올바른 이메일 주소를 입력해 주세요.");
       return;
     }
     setIsLoading(true);
@@ -137,11 +140,15 @@ export default function PaymentPage() {
       const res = await fetch("/api/payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), contact: contact.trim(), method }),
+        body: JSON.stringify({
+          depositorName: depositorName.trim(),
+          email: email.trim().toLowerCase(),
+          method,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error ?? "신청 중 오류가 발생했습니다.");
+        throw new Error((data as { error?: string })?.error ?? "신청 중 오류가 발생했습니다.");
       }
       setSubmitted(true);
     } catch (err: unknown) {
@@ -222,17 +229,20 @@ export default function PaymentPage() {
           onSubmit={handleSubmit}
           className="rounded-3xl border border-ink/10 bg-white px-6 py-6 shadow-panel"
         >
-          <h2 className="mb-4 text-base font-bold text-ink">신청 정보 입력</h2>
+          <h2 className="mb-1 text-base font-bold text-ink">신청 정보 입력</h2>
+          <p className="mb-5 text-xs text-ink/40">
+            이용 코드를 받으실 이메일 주소를 정확히 입력해 주세요.
+          </p>
 
           <div className="flex flex-col gap-4">
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-ink/70">
-                이름 <span className="text-danger">*</span>
+                입금자명 <span className="text-danger">*</span>
               </label>
               <input
                 type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={depositorName}
+                onChange={(e) => setDepositorName(e.target.value)}
                 placeholder="홍길동"
                 className="w-full rounded-xl border border-ink/15 bg-paper px-4 py-3 text-sm text-ink placeholder-ink/30 outline-none transition focus:border-sage focus:ring-2 focus:ring-sage/20"
                 required
@@ -240,16 +250,19 @@ export default function PaymentPage() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-ink/70">
-                연락처 <span className="text-danger">*</span>
+                이메일 주소 <span className="text-danger">*</span>
               </label>
               <input
-                type="text"
-                value={contact}
-                onChange={(e) => setContact(e.target.value)}
-                placeholder="010-0000-0000 또는 이메일"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="example@gmail.com"
                 className="w-full rounded-xl border border-ink/15 bg-paper px-4 py-3 text-sm text-ink placeholder-ink/30 outline-none transition focus:border-sage focus:ring-2 focus:ring-sage/20"
                 required
               />
+              <p className="mt-1.5 text-xs text-ink/40">
+                입금 확인 후 이 주소로 이용 코드를 발송합니다.
+              </p>
             </div>
           </div>
 
@@ -285,7 +298,8 @@ export default function PaymentPage() {
           <ul className="mt-2 space-y-1">
             <li>• 이용 코드 1개 = 계약서 분석 1회</li>
             <li>• 코드 발급 후 30일 이내 사용 가능</li>
-            <li>• 입금자명이 다를 경우 연락처로 확인 연락드립니다</li>
+            <li>• 입금 확인 시 이메일로 자동 발송됩니다</li>
+            <li>• 스팸함도 확인해 주세요</li>
           </ul>
         </div>
       </div>
