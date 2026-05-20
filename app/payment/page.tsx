@@ -452,11 +452,6 @@ function SuccessView({ method }: { method: PayMethod }) {
     </div>
   );
 }
-
-
-export default function PaymentPage() {
-  const [depositorName, setDepositorName] = useState("");
-  const [phone, setPhone] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
