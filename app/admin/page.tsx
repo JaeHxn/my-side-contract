@@ -9,6 +9,7 @@ import {
 import { AccessCodeIssuer } from "./AccessCodeIssuer";
 import { AdminLoginForm } from "./AdminLoginForm";
 import { AdminLogoutButton } from "./AdminLogoutButton";
+import { PaymentRequestList } from "./PaymentRequestList";
 
 export const metadata = {
   title: "관리자 코드 발급 | 내편계약서"
@@ -76,7 +77,10 @@ export default async function AdminPage() {
             </div>
           </section>
         ) : isAuthenticated ? (
-          <AccessCodeIssuer />
+          <div className="space-y-6">
+            <PaymentRequestList />
+            <AccessCodeIssuer />
+          </div>
         ) : (
           <AdminLoginForm />
         )}

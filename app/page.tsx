@@ -212,7 +212,7 @@ export default function HomePage() {
         </Link>
         <Link
           className="inline-flex shrink-0 items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-bold text-paper transition hover:bg-sage"
-          href="/upload"
+          href="/payment"
         >
           분석 시작
           <ArrowRight aria-hidden="true" className="h-4 w-4" />
@@ -236,17 +236,17 @@ export default function HomePage() {
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <Link
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-ink px-5 py-4 text-base font-black text-paper shadow-lg shadow-ink/15 transition hover:bg-sage"
-              href="/upload"
+              href="/payment"
             >
-              계약서 분석하기
+              3,900원으로 분석하기
               <ArrowRight aria-hidden="true" className="h-5 w-5" />
             </Link>
-            <a
+            <Link
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-ink/12 bg-white px-5 py-4 text-base font-black text-ink transition hover:border-sage/40 hover:text-sage"
-              href="#how-to"
+              href="/upload"
             >
-              사용법 보기
-            </a>
+              코드 있으면 바로 분석
+            </Link>
           </div>
           <div className="mt-6 grid grid-cols-1 gap-2 text-sm font-bold text-ink/60 sm:max-w-lg sm:grid-cols-3">
             <div className="flex min-w-0 items-center gap-1.5">
