@@ -1,539 +1,265 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Ban, CheckCircle2, Phone, RefreshCw, Smartphone } from "lucide-react";
-import { formatKoreanDateTime } from "@/src/lib/time/korean-time";
+import { useState, useEffect, useCallback } from "react";
+import { CheckCircle2, XCircle, Clock, Copy } from "lucide-react";
 
-type PaymentRequest = {
+type PaymentStatus = "pending" | "confirmed" | "rejected";
+
+interface PaymentRequest {
   id: string;
-  depositor_name: string;
-  phone: string;
-  amount: number;
-  status: "pending" | "confirmed" | "rejected";
-  memo: string | null;
-  issued_code: string | null;
+  name: string;
+  contact: string;
+  method: "kakaopay" | "bank";
+  status: PaymentStatus;
+  access_code: string | null;
   created_at: string;
-};
+  updated_at: string;
+}
 
 type StatusFilter = "pending" | "confirmed" | "rejected" | "all";
 
 const statusFilters: Array<{ value: StatusFilter; label: string }> = [
-  { value: "pending", label: "입금 대기" },
-  { value: "confirmed", label: "처리 완료" },
-  { value: "rejected", label: "거절" },
+  { value: "pending", label: "대기중" },
+  { value: "confirmed", label: "확인완료" },
+  { value: "rejected", label: "거절됨" },
   { value: "all", label: "전체" },
 ];
 
-function statusBadge(status: PaymentRequest["status"]) {
-  switch (status) {
-    case "pending":
-      return (
-        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">
-          대기 중
-        </span>
-      );
-    case "confirmed":
-      return (
-        <span className="inline-flex items-center rounded-full bg-sage/10 px-2 py-0.5 text-xs font-bold text-sage">
-          처리 완료
-        </span>
-      );
-    case "rejected":
-      return (
-        <span className="inline-flex items-center rounded-full bg-danger/10 px-2 py-0.5 text-xs font-bold text-danger">
-          거절
-        </span>
-      );
-  }
+function StatusBadge({ status }: { status: PaymentStatus }) {
+  const styles: Record<PaymentStatus, string> = {
+    pending: "bg-yellow-100 text-yellow-800",
+    confirmed: "bg-green-100 text-green-800",
+    rejected: "bg-red-100 text-red-800",
+  };
+  const labels: Record<PaymentStatus, string> = {
+    pending: "대기중",
+    confirmed: "확인완료",
+    rejected: "거절됨",
+  };
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles[status]}`}
+    >
+      {labels[status]}
+    </span>
+  );
 }
 
 export function PaymentRequestList() {
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [filter, setFilter] = useState<StatusFilter>("pending");
   const [isLoading, setIsLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [actionError, setActionError] = useState<Record<string, string>>({});
-  const [pendingCode, setPendingCode] = useState<Record<string, string>>({});
-  const [processing, setProcessing] = useState<Record<string, boolean>>({});
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  const loadRequests = useCallback(async () => {
+  const fetchRequests = useCallback(async () => {
     setIsLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/admin/payment-requests?status=${filter}`, {
-        headers: { Accept: "application/json" },
+      const params = filter !== "all" ? `?status=${filter}` : "";
+      const res = await fetch(`/api/admin/payment-requests${params}`, {
+        cache: "no-store",
       });
-      const data = (await res.json().catch(() => ({}))) as {
-        paymentRequests?: PaymentRequest[];
-        message?: string;
-      };
-      if (!res.ok) {
-        setError(data.message ?? "목록을 불러오지 못했습니다.");
-        return;
-      }
-      setRequests(data.paymentRequests ?? []);
-    } catch {
-      setError("네트워크 오류가 발생했습니다.");
+      if (!res.ok) throw new Error("목록 조회 실패");
+      const data = await res.json();
+      setRequests(data.requests ?? []);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
     } finally {
       setIsLoading(false);
     }
   }, [filter]);
 
   useEffect(() => {
-    void loadRequests();
-  }, [loadRequests]);
+    fetchRequests();
+  }, [fetchRequests]);
 
-  async function handleConfirm(id: string) {
-    const code = pendingCode[id]?.trim();
-    if (!code || !/^\d{6}$/.test(code)) {
-      setActionError((prev) => ({ ...prev, [id]: "발급할 6자리 숫자 코드를 입력하세요." }));
-      return;
-    }
-    setProcessing((prev) => ({ ...prev, [id]: true }));
-    setActionError((prev) => ({ ...prev, [id]: "" }));
+  async function handleAction(id: string, action: "confirmed" | "rejected") {
+    setActionLoading(id);
     try {
       const res = await fetch("/api/admin/payment-requests", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ id, issuedCode: code }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: action }),
       });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
-      if (!res.ok || !data.ok) {
-        setActionError((prev) => ({ ...prev, [id]: data.message ?? "처리 중 오류가 발생했습니다." }));
-        return;
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d?.error ?? "처리 실패");
       }
-      void loadRequests();
-    } catch {
-      setActionError((prev) => ({ ...prev, [id]: "네트워크 오류가 발생했습니다." }));
+      await fetchRequests();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "처리 중 오류");
     } finally {
-      setProcessing((prev) => ({ ...prev, [id]: false }));
+      setActionLoading(null);
     }
   }
 
-  async function handleReject(id: string) {
-    if (!confirm("이 입금 신청을 거절하시겠습니까?")) return;
-    setProcessing((prev) => ({ ...prev, [id]: true }));
-    try {
-      const res = await fetch("/api/admin/payment-requests", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ id, action: "reject" }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
-      if (!res.ok || !data.ok) {
-        setActionError((prev) => ({ ...prev, [id]: data.message ?? "처리 중 오류가 발생했습니다." }));
-        return;
-      }
-      void loadRequests();
-    } catch {
-      setActionError((prev) => ({ ...prev, [id]: "네트워크 오류가 발생했습니다." }));
-    } finally {
-      setProcessing((prev) => ({ ...prev, [id]: false }));
-    }
+  function copyCode(code: string) {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    });
+  }
+
+  function formatDate(iso: string) {
+    return new Date(iso).toLocaleString("ko-KR", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   return (
-    <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel sm:p-7">
-      {/* 헤더 */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-black text-ink">입금 신청 목록</h2>
-          <p className="mt-0.5 text-xs text-ink/48">
-            은행 앱에서 입금 내역 확인 후 이름·금액 매칭 → 코드 발급
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-ink/10 bg-paper p-1">
-            {statusFilters.map((f) => (
-              <button
-                key={f.value}
-                type="button"
-                onClick={() => setFilter(f.value)}
-                className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                  filter === f.value ? "bg-ink text-paper shadow" : "text-ink/56 hover:text-ink"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() => void loadRequests()}
-            disabled={isLoading}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 bg-white px-3 py-2 text-xs font-bold text-ink/64 transition hover:border-sage/40 hover:text-sage disabled:opacity-50"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            새로고침
-          </button>
-        </div>
+    <section className="rounded-3xl border border-ink/10 bg-white p-6 shadow-panel">
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-ink">결제 신청 목록</h2>
+        <button
+          onClick={fetchRequests}
+          className="rounded-xl border border-ink/10 px-3 py-1.5 text-xs font-semibold text-ink/60 transition hover:bg-paper"
+        >
+          새로고침
+        </button>
       </div>
 
-      {/* 은행 앱 확인 안내 (대기 중 탭에서만) */}
-      {filter === "pending" && !isLoading && requests.length > 0 ? (
-        <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-          <p className="text-xs leading-5 text-amber-700">
-            <strong>확인 순서:</strong> 은행 앱 열기 → 입금 내역에서 <strong>이름 + 3,900원</strong> 찾기 → 아래 목록에서 같은 이름 찾아 코드 발급
-          </p>
-        </div>
-      ) : null}
+      {/* 상태 필터 */}
+      <div className="mb-5 flex gap-2 overflow-x-auto">
+        {statusFilters.map((f) => (
+          <button
+            key={f.value}
+            onClick={() => setFilter(f.value)}
+            className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
+              filter === f.value
+                ? "bg-ink text-white"
+                : "border border-ink/10 text-ink/60 hover:text-ink"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
 
-      {error ? (
-        <div className="flex items-center gap-2 rounded-lg bg-danger/8 px-4 py-3 text-sm text-danger">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
+      {error && (
+        <p className="mb-4 rounded-xl bg-red-50 px-4 py-2 text-sm text-danger">
           {error}
-        </div>
-      ) : requests.length === 0 ? (
-        <p className="py-8 text-center text-sm text-ink/40">
-          {isLoading ? "불러오는 중…" : "해당 신청이 없습니다."}
         </p>
+      )}
+
+      {isLoading ? (
+        <div className="py-12 text-center text-sm text-ink/40">불러오는 중...</div>
+      ) : requests.length === 0 ? (
+        <div className="py-12 text-center text-sm text-ink/40">
+          해당 상태의 신청이 없습니다.
+        </div>
       ) : (
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           {requests.map((req) => (
             <div
               key={req.id}
-              className={`rounded-xl border p-4 transition ${
-                req.status === "pending"
-                  ? "border-amber-200 bg-amber-50/40 hover:border-amber-300"
-                  : "border-ink/8 bg-paper hover:border-ink/16"
-              }`}
+              className="rounded-2xl border border-ink/8 bg-paper px-5 py-4"
             >
-              {/* 핵심 정보: 이름 + 금액 크게 표시 (은행 앱 매칭용) */}
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  {/* 입금자명 — 은행 앱 매칭의 핵심 */}
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink text-base font-black text-paper">
-                    {req.depositor_name.slice(0, 1)}
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-ink">{req.name}</span>
+                    <StatusBadge status={req.status} />
+                    <span className="text-xs text-ink/40">
+                      {req.method === "kakaopay" ? "카카오페이" : "계좌이체"}
+                    </span>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-black text-ink">{req.depositor_name}</span>
-                      {statusBadge(req.status)}
+                  <p className="text-sm text-ink/60">{req.contact}</p>
+                  <p className="text-xs text-ink/40">{formatDate(req.created_at)}</p>
+                  {req.access_code && (
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <span className="rounded-lg bg-sage/10 px-2 py-0.5 text-xs font-bold text-sage">
+                        {req.access_code}
+                      </span>
+                      <button
+                        onClick={() => copyCode(req.access_code!)}
+                        className="text-ink/40 transition hover:text-ink"
+                      >
+                        {copiedCode === req.access_code ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-sage" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                      </button>
                     </div>
-                    <p className="text-sm font-bold text-amber-600">
-                      {req.amount.toLocaleString()}원 입금 확인 필요
-                    </p>
-                  </div>
+                  )}
                 </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-xs text-ink/40">
-                    신청 시각
-                  </p>
-                  <p className="text-xs font-bold text-ink/64">
-                    {formatKoreanDateTime(req.created_at, { dateStyle: "short", timeStyle: "short" })}
-                  </p>
-                </div>
-              </div>
 
-              {/* 연락처 + 발급 코드 */}
-              <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-white/60 px-3 py-2 text-xs">
-                <span className="flex items-center gap-1 font-bold text-ink/64">
-                  <Phone className="h-3 w-3" />
-                  {req.phone}
-                  <span className="text-ink/36">(코드 받을 번호)</span>
-                </span>
-                {req.issued_code ? (
-                  <span className="font-bold text-sage">
-                    발급된 코드: <strong className="text-base">{req.issued_code}</strong>
+                {req.status === "pending" && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAction(req.id, "confirmed")}
+                      disabled={actionLoading === req.id}
+                      className="flex items-center gap-1.5 rounded-xl bg-green-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-green-700 disabled:opacity-60"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {actionLoading === req.id ? "처리중..." : "입금 확인"}
+                    </button>
+                    <button
+                      onClick={() => handleAction(req.id, "rejected")}
+                      disabled={actionLoading === req.id}
+                      className="flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-danger transition hover:bg-red-50 disabled:opacity-60"
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                      거절
+                    </button>
+                  </div>
+                )}
+
+                {req.status === "confirmed" && (
+                  <span className="flex items-center gap-1 text-xs text-green-700">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    완료
                   </span>
-                ) : null}
-              </div>
+                )}
 
-              {/* 대기 중일 때 코드 발급 영역 */}
-              {req.status === "pending" ? (
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="text-xs font-bold text-ink/64">
-                      은행 앱 확인 후 코드 발급:
-                    </label>
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        placeholder="코드 6자리"
-                        value={pendingCode[req.id] ?? ""}
-                        onChange={(e) =>
-                          setPendingCode((prev) => ({
-                            ...prev,
-                            [req.id]: e.target.value.replace(/\D/g, ""),
-                          }))
-                        }
-                        className="w-28 rounded-lg border border-ink/16 bg-white px-3 py-2 text-sm font-black text-ink outline-none transition focus:border-sage focus:ring-2 focus:ring-sage/20"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void handleConfirm(req.id)}
-                        disabled={processing[req.id]}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-xs font-black text-paper transition hover:bg-sage disabled:opacity-50"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        입금 확인 · 코드 발급
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleReject(req.id)}
-                        disabled={processing[req.id]}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-danger/20 px-3 py-2 text-xs font-bold text-danger transition hover:bg-danger/8 disabled:opacity-50"
-                      >
-                        <Ban className="h-3.5 w-3.5" />
-                        미입금·거절
-                      </button>
-                    </div>
-                  </div>
-                  {actionError[req.id] ? (
-                    <p className="text-xs text-danger">{actionError[req.id]}</p>
-                  ) : null}
-                </div>
-              ) : null}
+                {req.status === "rejected" && (
+                  <span className="flex items-center gap-1 text-xs text-danger">
+                    <XCircle className="h-3.5 w-3.5" />
+                    거절됨
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>
       )}
-    </section>
-  );
-}
 
-
-type PaymentRequest = {
-  id: string;
-  depositor_name: string;
-  phone: string;
-  amount: number;
-  status: "pending" | "confirmed" | "rejected";
-  memo: string | null;
-  issued_code: string | null;
-  created_at: string;
-};
-
-type StatusFilter = "pending" | "confirmed" | "rejected" | "all";
-
-const statusFilters: Array<{ value: StatusFilter; label: string }> = [
-  { value: "pending", label: "입금 대기" },
-  { value: "confirmed", label: "처리 완료" },
-  { value: "rejected", label: "거절" },
-  { value: "all", label: "전체" },
-];
-
-function statusBadge(status: PaymentRequest["status"]) {
-  switch (status) {
-    case "pending":
-      return (
-        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">
-          대기 중
-        </span>
-      );
-    case "confirmed":
-      return (
-        <span className="inline-flex items-center rounded-full bg-sage/10 px-2 py-0.5 text-xs font-bold text-sage">
-          처리 완료
-        </span>
-      );
-    case "rejected":
-      return (
-        <span className="inline-flex items-center rounded-full bg-danger/10 px-2 py-0.5 text-xs font-bold text-danger">
-          거절
-        </span>
-      );
-  }
-}
-
-export function PaymentRequestList() {
-  const [requests, setRequests] = useState<PaymentRequest[]>([]);
-  const [filter, setFilter] = useState<StatusFilter>("pending");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [actionError, setActionError] = useState<Record<string, string>>({});
-  const [pendingCode, setPendingCode] = useState<Record<string, string>>({});
-  const [processing, setProcessing] = useState<Record<string, boolean>>({});
-
-  const loadRequests = useCallback(async () => {
-    setIsLoading(true);
-    setError("");
-    try {
-      const res = await fetch(`/api/admin/payment-requests?status=${filter}`, {
-        headers: { Accept: "application/json" },
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        paymentRequests?: PaymentRequest[];
-        message?: string;
-      };
-      if (!res.ok) {
-        setError(data.message ?? "목록을 불러오지 못했습니다.");
-        return;
-      }
-      setRequests(data.paymentRequests ?? []);
-    } catch {
-      setError("네트워크 오류가 발생했습니다.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [filter]);
-
-  useEffect(() => {
-    void loadRequests();
-  }, [loadRequests]);
-
-  async function handleConfirm(id: string) {
-    const code = pendingCode[id]?.trim();
-    if (!code || !/^\d{6}$/.test(code)) {
-      setActionError((prev) => ({ ...prev, [id]: "발급할 6자리 숫자 코드를 입력하세요." }));
-      return;
-    }
-    setProcessing((prev) => ({ ...prev, [id]: true }));
-    setActionError((prev) => ({ ...prev, [id]: "" }));
-    try {
-      const res = await fetch("/api/admin/payment-requests", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ id, issuedCode: code }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
-      if (!res.ok || !data.ok) {
-        setActionError((prev) => ({ ...prev, [id]: data.message ?? "처리 중 오류가 발생했습니다." }));
-        return;
-      }
-      void loadRequests();
-    } catch {
-      setActionError((prev) => ({ ...prev, [id]: "네트워크 오류가 발생했습니다." }));
-    } finally {
-      setProcessing((prev) => ({ ...prev, [id]: false }));
-    }
-  }
-
-  async function handleReject(id: string) {
-    if (!confirm("이 입금 신청을 거절하시겠습니까?")) return;
-    setProcessing((prev) => ({ ...prev, [id]: true }));
-    try {
-      const res = await fetch("/api/admin/payment-requests", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ id, action: "reject" }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
-      if (!res.ok || !data.ok) {
-        setActionError((prev) => ({ ...prev, [id]: data.message ?? "처리 중 오류가 발생했습니다." }));
-        return;
-      }
-      void loadRequests();
-    } catch {
-      setActionError((prev) => ({ ...prev, [id]: "네트워크 오류가 발생했습니다." }));
-    } finally {
-      setProcessing((prev) => ({ ...prev, [id]: false }));
-    }
-  }
-
-  return (
-    <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel sm:p-7">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-black text-ink">입금 신청 목록</h2>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-ink/10 bg-paper p-1">
-            {statusFilters.map((f) => (
-              <button
-                key={f.value}
-                type="button"
-                onClick={() => setFilter(f.value)}
-                className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                  filter === f.value
-                    ? "bg-ink text-paper shadow"
-                    : "text-ink/56 hover:text-ink"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+      {/* 대기중 카운트 표시 */}
+      {filter === "all" && (
+        <div className="mt-4 border-t border-ink/5 pt-4">
+          <div className="flex gap-4 text-xs text-ink/50">
+            <span>
+              대기:{" "}
+              <strong className="text-yellow-700">
+                {requests.filter((r) => r.status === "pending").length}
+              </strong>
+            </span>
+            <span>
+              완료:{" "}
+              <strong className="text-green-700">
+                {requests.filter((r) => r.status === "confirmed").length}
+              </strong>
+            </span>
+            <span>
+              거절:{" "}
+              <strong className="text-danger">
+                {requests.filter((r) => r.status === "rejected").length}
+              </strong>
+            </span>
           </div>
-          <button
-            type="button"
-            onClick={() => void loadRequests()}
-            disabled={isLoading}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 bg-white px-3 py-2 text-xs font-bold text-ink/64 transition hover:border-sage/40 hover:text-sage disabled:opacity-50"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            새로고침
-          </button>
         </div>
-      </div>
+      )}
 
-      {error ? (
-        <div className="flex items-center gap-2 rounded-lg bg-danger/8 px-4 py-3 text-sm text-danger">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          {error}
-        </div>
-      ) : requests.length === 0 ? (
-        <p className="py-8 text-center text-sm text-ink/40">
-          {isLoading ? "불러오는 중…" : "해당 신청이 없습니다."}
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {requests.map((req) => (
-            <div
-              key={req.id}
-              className="rounded-xl border border-ink/8 bg-paper p-4 transition hover:border-ink/16"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-black text-ink">{req.depositor_name}</span>
-                    {statusBadge(req.status)}
-                  </div>
-                  <p className="text-xs text-ink/56">
-                    {req.phone} · {req.amount.toLocaleString()}원 ·{" "}
-                    {formatKoreanDateTime(req.created_at, { dateStyle: "short", timeStyle: "short" })}
-                  </p>
-                  {req.issued_code ? (
-                    <p className="text-xs text-sage">
-                      발급 코드: <strong>{req.issued_code}</strong>
-                    </p>
-                  ) : null}
-                </div>
-
-                {req.status === "pending" ? (
-                  <div className="flex flex-col items-end gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        placeholder="코드 6자리"
-                        value={pendingCode[req.id] ?? ""}
-                        onChange={(e) =>
-                          setPendingCode((prev) => ({
-                            ...prev,
-                            [req.id]: e.target.value.replace(/\D/g, ""),
-                          }))
-                        }
-                        className="w-28 rounded-lg border border-ink/16 bg-white px-3 py-2 text-sm font-bold text-ink outline-none transition focus:border-sage focus:ring-2 focus:ring-sage/20"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void handleConfirm(req.id)}
-                        disabled={processing[req.id]}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-xs font-black text-paper transition hover:bg-ink/85 disabled:opacity-50"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        확인 발급
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleReject(req.id)}
-                        disabled={processing[req.id]}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-danger/20 px-3 py-2 text-xs font-bold text-danger transition hover:bg-danger/8 disabled:opacity-50"
-                      >
-                        <Ban className="h-3.5 w-3.5" />
-                        거절
-                      </button>
-                    </div>
-                    {actionError[req.id] ? (
-                      <p className="text-xs text-danger">{actionError[req.id]}</p>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ))}
+      {/* 대기 아이콘 */}
+      {filter !== "all" && requests.some((r) => r.status === "pending") && (
+        <div className="mt-4 flex items-center gap-1.5 text-xs text-yellow-700">
+          <Clock className="h-3.5 w-3.5" />
+          대기 중인 신청이 있습니다.
         </div>
       )}
     </section>
