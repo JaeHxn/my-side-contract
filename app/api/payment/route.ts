@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseServerConfig, SupabaseConfigError } from "@/src/lib/supabase/server";
 
 const PRICE = 3900;
 
@@ -20,32 +20,42 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "올바른 휴대폰번호를 입력해 주세요. (숫자만, 10~11자리)" }, { status: 400 });
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json({ error: "서버 설정 오류입니다. 잠시 후 다시 시도해 주세요." }, { status: 500 });
+  let config;
+  try {
+    config = getSupabaseServerConfig();
+  } catch (e) {
+    if (e instanceof SupabaseConfigError) {
+      return NextResponse.json({ error: "서버 설정 오류입니다. 잠시 후 다시 시도해 주세요." }, { status: 500 });
+    }
+    throw e;
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
-
   const cleanPhone = phone.replace(/-/g, "");
+  const url = new URL(`${config.url}/rest/v1/payment_requests`);
 
-  const { data, error } = await supabase
-    .from("payment_requests")
-    .insert({
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      apikey: config.serviceRoleKey,
+      authorization: `Bearer ${config.serviceRoleKey}`,
+      "content-type": "application/json",
+      prefer: "return=representation",
+    },
+    body: JSON.stringify({
       depositor_name: depositorName.trim(),
       phone: cleanPhone,
       amount: PRICE,
       status: "pending",
-    })
-    .select("id, created_at")
-    .single();
+    }),
+  });
 
-  if (error) {
-    console.error("[payment] insert error:", error);
+  const data = await response.json().catch(() => null) as unknown;
+
+  if (!response.ok) {
+    console.error("[payment] insert error:", data);
     return NextResponse.json({ error: "신청 저장 중 오류가 발생했습니다. 다시 시도해 주세요." }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, requestId: data.id }, { status: 201 });
+  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
+  return NextResponse.json({ ok: true, requestId: row?.id ?? null }, { status: 201 });
 }
