@@ -4,10 +4,10 @@ import { useState, FormEvent } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, CheckCircle2, Copy, CreditCard } from "lucide-react";
 
-const KAKAOPAY_LINK = process.env.NEXT_PUBLIC_KAKAOPAY_LINK ?? "";
+const KAKAOPAY_LINK = process.env.NEXT_PUBLIC_KAKAOPAY_LINK ?? "https://link.kakaopay.com/__/WRK6HoT";
 const BANK_NAME = process.env.NEXT_PUBLIC_PAYMENT_BANK_NAME ?? "카카오뱅크";
-const ACCOUNT_NUMBER = process.env.NEXT_PUBLIC_PAYMENT_ACCOUNT ?? "계좌번호 미설정";
-const ACCOUNT_HOLDER = process.env.NEXT_PUBLIC_PAYMENT_HOLDER ?? "예금주 미설정";
+const ACCOUNT_NUMBER = process.env.NEXT_PUBLIC_PAYMENT_ACCOUNT ?? "02003210718";
+const ACCOUNT_HOLDER = process.env.NEXT_PUBLIC_PAYMENT_HOLDER ?? "장재훈";
 const PRICE = "3,900";
 const ORIGINAL_PRICE = "8,900";
 const DISCOUNT_RATE = "56%";
