@@ -69,7 +69,7 @@ export default function PaymentRequestList() {
     setTimeout(() => setToast(null), 5000);
   }
 
-  async function handleAction(req: PaymentRequest, action: "confirm" | "reject") {
+  async function handleAction(req: PaymentRequest, action: "confirm" | "reject" | "resend_email") {
     setProcessingId(req.id);
     try {
       const res = await fetch("/api/admin/payment-requests", {
@@ -85,11 +85,16 @@ export default function PaymentRequestList() {
       }
       if (action === "confirm") {
         const emailMsg = data.emailSent
-          ? `✓ 이메일 발송 완료 (${req.email})`
+          ? `✓ 코드 발급 + 이메일 발송 완료 (${req.email})`
           : data.emailError
           ? `⚠ 코드 발급됨(${data.code}) — 이메일 실패: ${data.emailError}`
-          : `코드 발급됨: ${data.code}`;
-        showToast(req.id, emailMsg, !data.emailSent);
+          : `코드 발급됨: ${data.code} (이메일 없음)`;
+        showToast(req.id, emailMsg, !!data.emailError);
+      } else if (action === "resend_email") {
+        const msg = data.emailSent
+          ? `✓ 이메일 재발송 완료 (${req.email})`
+          : `✗ 재발송 실패: ${data.emailError ?? "알 수 없는 오류"}`;
+        showToast(req.id, msg, !data.emailSent);
       } else {
         showToast(req.id, "거절 처리 완료");
       }
@@ -194,31 +199,48 @@ export default function PaymentRequestList() {
                   </div>
 
                   {/* 버튼 */}
-                  {isPending && (
-                    <div className="flex flex-shrink-0 flex-col gap-2">
+                  <div className="flex flex-shrink-0 flex-col gap-2">
+                    {isPending && (
+                      <>
+                        <button
+                          onClick={() => void handleAction(req, "confirm")}
+                          disabled={isProcessing}
+                          title="입금 확인 — 코드 자동 발급 + 이메일 발송"
+                          className="flex items-center gap-1.5 rounded-xl bg-sage/10 px-3 py-2 text-xs font-bold text-sage transition hover:bg-sage/20 disabled:opacity-50"
+                        >
+                          {isProcessing ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          )}
+                          승인 + 이메일
+                        </button>
+                        <button
+                          onClick={() => void handleAction(req, "reject")}
+                          disabled={isProcessing}
+                          className="flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-danger transition hover:bg-red-100 disabled:opacity-50"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                          거절
+                        </button>
+                      </>
+                    )}
+                    {!isPending && req.status === "confirmed" && req.email && req.issued_code && (
                       <button
-                        onClick={() => void handleAction(req, "confirm")}
+                        onClick={() => void handleAction(req, "resend_email")}
                         disabled={isProcessing}
-                        title="입금 확인 — 코드 자동 발급 + 이메일 발송"
-                        className="flex items-center gap-1.5 rounded-xl bg-sage/10 px-3 py-2 text-xs font-bold text-sage transition hover:bg-sage/20 disabled:opacity-50"
+                        title={`이용 코드 이메일 재발송 → ${req.email}`}
+                        className="flex items-center gap-1.5 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-600 transition hover:bg-blue-100 disabled:opacity-50"
                       >
                         {isProcessing ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <Mail className="h-3.5 w-3.5" />
                         )}
-                        확인
+                        이메일 재발송
                       </button>
-                      <button
-                        onClick={() => void handleAction(req, "reject")}
-                        disabled={isProcessing}
-                        className="flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-danger transition hover:bg-red-100 disabled:opacity-50"
-                      >
-                        <XCircle className="h-3.5 w-3.5" />
-                        거절
-                      </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </li>
             );

@@ -76,13 +76,48 @@ export async function PATCH(request: Request) {
   if (typeof id !== "string" || !id) {
     return jsonNoStore({ error: "BAD_REQUEST", message: "id가 필요합니다." }, 400);
   }
-  if (action !== "confirm" && action !== "reject") {
-    return jsonNoStore({ error: "BAD_REQUEST", message: "action은 confirm 또는 reject 이어야 합니다." }, 400);
+  if (action !== "confirm" && action !== "reject" && action !== "resend_email") {
+    return jsonNoStore({ error: "BAD_REQUEST", message: "action은 confirm, reject, resend_email 이어야 합니다." }, 400);
   }
 
   const config = getConfig();
   if (!config) {
     return jsonNoStore({ error: "SERVER_ERROR", message: "서버 설정 오류입니다." }, 500);
+  }
+
+  // ── 이메일 재발송 ──────────────────────────────
+  if (action === "resend_email") {
+    const getUrl2 = new URL(`${config.url}/rest/v1/payment_requests`);
+    getUrl2.searchParams.set("id", `eq.${id}`);
+    getUrl2.searchParams.set("select", "id,depositor_name,email,issued_code,status");
+    getUrl2.searchParams.set("limit", "1");
+    const getRes2 = await fetch(getUrl2, { headers: makeHeaders(config.serviceRoleKey) });
+    const rows2 = (await getRes2.json().catch(() => [])) as Record<string, unknown>[];
+    const row2 = rows2[0];
+
+    if (!row2) {
+      return jsonNoStore({ error: "NOT_FOUND", message: "해당 신청을 찾을 수 없습니다." }, 404);
+    }
+    const resendEmail = typeof row2.email === "string" ? row2.email : null;
+    const resendCode = typeof row2.issued_code === "string" ? row2.issued_code : null;
+    if (!resendEmail) {
+      return jsonNoStore({ error: "NO_EMAIL", message: "이메일 주소가 없습니다." }, 400);
+    }
+    if (!resendCode) {
+      return jsonNoStore({ error: "NO_CODE", message: "발급된 코드가 없습니다. 먼저 승인하세요." }, 400);
+    }
+    try {
+      await sendAccessCodeEmail({
+        to: resendEmail,
+        buyerName: String(row2.depositor_name),
+        code: resendCode,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      });
+      return jsonNoStore({ ok: true, emailSent: true, code: resendCode });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "이메일 발송 실패";
+      return jsonNoStore({ ok: false, emailSent: false, emailError: msg }, 500);
+    }
   }
 
   // ── 거절 처리 ──────────────────────────────────
