@@ -220,7 +220,7 @@ export default function HomePage() {
       </header>
 
       {/* Hero */}
-      <section className="mx-auto grid max-w-6xl items-center gap-8 overflow-hidden px-5 pb-14 pt-6 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8 lg:pb-20 lg:pt-10">
+      <section className="mx-auto grid max-w-6xl items-center gap-8 overflow-hidden px-5 pb-14 pt-6 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8 lg:pb-20 lg:pt-10" id="hero">
         <div className="fade-up min-w-0">
           <p className="mb-4 inline-flex items-center rounded-full border border-sage/20 bg-sage/10 px-3 py-1 text-sm font-bold text-sage">
             전월세·근로 계약서 분석
@@ -401,7 +401,7 @@ export default function HomePage() {
       </section>
 
       {/* 적용 법령 공개 */}
-      <section className="mx-auto max-w-6xl px-5 py-14 sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-6xl px-5 py-14 sm:px-6 lg:px-8" id="laws">
         <div className="mb-10 max-w-2xl">
           <p className="mb-2 text-sm font-black text-sage">실제 법령 근거</p>
           <h2 className="text-3xl font-black leading-tight text-ink">어떤 법을 기준으로 분석하나요</h2>
@@ -478,7 +478,7 @@ export default function HomePage() {
       </section>
 
       {/* 지원 범위 */}
-      <section className="mx-auto grid max-w-6xl gap-5 px-5 py-12 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
+      <section className="mx-auto grid max-w-6xl gap-5 px-5 py-12 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8" id="features">
         <div>
           <p className="mb-2 text-sm font-black text-sage">현재 지원 범위</p>
           <h2 className="text-3xl font-black leading-tight text-ink">지금 분석할 수 있는 계약서</h2>
@@ -592,7 +592,15 @@ export default function HomePage() {
 
       <footer className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-8 text-sm font-semibold text-ink/50 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <p>내편계약서</p>
-        <p>전월세·근로·인테리어·프리랜서 계약서 분석 서비스</p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <Link href="/privacy" className="transition hover:text-sage">
+            개인정보처리방침
+          </Link>
+          <Link href="/terms" className="transition hover:text-sage">
+            이용약관
+          </Link>
+          <p>전월세·근로·인테리어·프리랜서 계약서 분석</p>
+        </div>
       </footer>
     </main>
   );

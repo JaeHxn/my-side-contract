@@ -76,6 +76,7 @@ export const metadata: Metadata = {
     google: "3OkjLzNTop9qBNQnk3wSmKDTymocYsa9X09ZMcN9Vz0",
   },
   other: {
+    "theme-color": "#1a1a1a",
     // 네이버 서치어드바이저 인증 코드 (등록 후 실제 값으로 교체)
     // "naver-site-verification": "YOUR_NAVER_CODE",
   },
@@ -89,6 +90,10 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+        <link rel="dns-prefetch" href="https://www.law.go.kr" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" />
         <link
           rel="preload"

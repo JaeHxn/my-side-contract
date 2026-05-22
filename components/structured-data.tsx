@@ -53,6 +53,10 @@ const serviceSchema = {
     "@type": "Audience",
     audienceType: "임차인, 근로자, 프리랜서, 인테리어 발주자",
   },
+  speakable: {
+    "@type": "SpeakableSpecification",
+    cssSelector: ["h1", "h2", "#faq", "#how-to"],
+  },
 };
 
 const faqSchema = {
@@ -189,7 +193,40 @@ const organizationSchema = {
     "계약서 분석",
     "AI 법률 서비스",
   ],
+  areaServed: {
+    "@type": "Country",
+    name: "South Korea",
+    "@id": "https://www.wikidata.org/wiki/Q884",
+  },
+  foundingDate: "2026",
 };
+
+const legalTermsSchema = [
+  {
+    "@context": "https://schema.org",
+    "@type": "DefinedTerm",
+    name: "계약갱신요구권",
+    description:
+      "임차인이 계약 만료 전 계약 갱신을 요구할 수 있는 법정 권리. 주택임대차보호법 제6조의3에 규정. 사전 포기 특약은 효력 없음.",
+    inDefinedTermSet: "주택임대차보호법",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "DefinedTerm",
+    name: "위약예정금지",
+    description:
+      "사용자는 근로계약 불이행에 대한 위약금 또는 손해배상액을 예정하는 계약을 체결하지 못한다는 원칙. 근로기준법 제20조에 규정.",
+    inDefinedTermSet: "근로기준법",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "DefinedTerm",
+    name: "포괄임금제",
+    description:
+      "연장·야간·휴일근로수당을 별도로 지급하지 않고 기본급에 포함하는 임금 지급 방식. 실제 초과근로 없는 경우 유효하나 악용 시 불법.",
+    inDefinedTermSet: "근로기준법",
+  },
+];
 
 const breadcrumbSchema = {
   "@context": "https://schema.org",
@@ -237,6 +274,13 @@ export function StructuredData() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
+      {legalTermsSchema.map((term, i) => (
+        <script
+          key={`term-${i}`}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(term) }}
+        />
+      ))}
     </>
   );
 }
