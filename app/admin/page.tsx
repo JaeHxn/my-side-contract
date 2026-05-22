@@ -10,12 +10,46 @@ import { AccessCodeIssuer } from "./AccessCodeIssuer";
 import { AdminLoginForm } from "./AdminLoginForm";
 import { AdminLogoutButton } from "./AdminLogoutButton";
 import PaymentRequestList from "./PaymentRequestList";
+import { ThreadsConnectButton } from "./ThreadsConnectButton";
 
 export const metadata = {
   title: "관리자 코드 발급 | 내편계약서"
 };
 
 export const dynamic = "force-dynamic";
+
+function ThreadsSection() {
+  const appId = process.env.THREADS_APP_ID;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://my-side-contract.vercel.app";
+  const redirectUri = `${siteUrl}/api/auth/threads/callback`;
+  const isConnected = Boolean(process.env.THREADS_ACCESS_TOKEN);
+
+  return (
+    <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-panel sm:p-7">
+      <div className="mb-4 flex items-center gap-2">
+        <span className="text-lg font-black text-ink">Threads 자동 포스팅</span>
+        {isConnected ? (
+          <span className="rounded-full bg-safe/15 px-2.5 py-0.5 text-xs font-bold text-safe">연결됨</span>
+        ) : (
+          <span className="rounded-full bg-warn/15 px-2.5 py-0.5 text-xs font-bold text-warn">미연결</span>
+        )}
+      </div>
+      <p className="mb-4 text-sm leading-6 text-ink/65">
+        매주 수요일 오후 6시(KST)에 계약서 팁을 Threads에 자동 포스팅합니다.
+        최초 1회만 연결하면 되고, 토큰은 60일마다 갱신이 필요합니다.
+      </p>
+      {appId ? (
+        <ThreadsConnectButton appId={appId} redirectUri={redirectUri} />
+      ) : (
+        <p className="text-sm text-ink/50">
+          <code className="rounded bg-ink/8 px-1.5 py-0.5 text-xs">THREADS_APP_ID</code>와{" "}
+          <code className="rounded bg-ink/8 px-1.5 py-0.5 text-xs">THREADS_APP_SECRET</code>을
+          Vercel 환경변수에 먼저 추가하세요.
+        </p>
+      )}
+    </section>
+  );
+}
 
 export default async function AdminPage() {
   const cookieStore = await cookies();
@@ -80,6 +114,7 @@ export default async function AdminPage() {
           <div className="space-y-6">
             <PaymentRequestList />
             <AccessCodeIssuer />
+            <ThreadsSection />
           </div>
         ) : (
           <AdminLoginForm />
