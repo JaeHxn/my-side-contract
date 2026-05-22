@@ -1,4 +1,4 @@
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://my-side-contract.vercel.app";
+﻿const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://my-side-contract.vercel.app";
 
 const websiteSchema = {
   "@context": "https://schema.org",
@@ -28,8 +28,9 @@ const serviceSchema = {
     "계약서 텍스트 또는 파일(PDF·사진)을 업로드하면 AI가 주택임대차보호법, 근로기준법 등 실제 법령과 대조하여 불리한 조항, 불법 가능 문구, 빠진 보호 조항을 즉시 분석합니다. 변호사 없이 계약서를 점검할 수 있습니다.",
   offers: {
     "@type": "Offer",
-    description: "계약서 1건 분석",
+    price: "3900",
     priceCurrency: "KRW",
+    description: "계약서 1건 AI 분석",
     availability: "https://schema.org/InStock",
   },
   featureList: [
@@ -127,7 +128,7 @@ const faqSchema = {
       name: "계약서에서 위험 조항이 발견되면 어떻게 되나요?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "위험 조항마다 실제 법 조항 번호, 위법 이유, 삭제·수정 권고 문구를 함께 제시합니다. 🔴 위험(불법 가능), 🟡 불리한 조항, ⚠️ 빠진 조항, 🟢 정상 조항으로 등급을 나누어 카드 형태로 보여드립니다.",
+        text: "위험 조항마다 실제 법 조항 번호, 위법 이유, 삭제·수정 권고 문구를 함께 제시합니다. 위험(불법 가능), 불리한 조항, 빠진 조항, 정상 조항으로 등급을 나누어 카드 형태로 보여드립니다.",
       },
     },
   ],
@@ -171,6 +172,44 @@ const howToSchema = {
   ],
 };
 
+const organizationSchema = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "내편계약서",
+  url: siteUrl,
+  description: "계약서 AI 분석 서비스",
+  contactPoint: {
+    "@type": "ContactPoint",
+    contactType: "customer service",
+    availableLanguage: "Korean",
+  },
+  knowsAbout: [
+    "주택임대차보호법",
+    "근로기준법",
+    "계약서 분석",
+    "AI 법률 서비스",
+  ],
+};
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "홈",
+      item: siteUrl,
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "계약서 분석",
+      item: `${siteUrl}/upload`,
+    },
+  ],
+};
+
 export function StructuredData() {
   return (
     <>
@@ -189,6 +228,14 @@ export function StructuredData() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
     </>
   );

@@ -25,6 +25,14 @@ export const metadata: Metadata = {
     "계약서 위험 조항",
     "인테리어 계약서",
     "프리랜서 계약서",
+    "계약서 위험 조항 찾기",
+    "전월세 특약 조항 분석",
+    "근로계약서 불법 조항",
+    "계약갱신요구권",
+    "위약예정금지",
+    "포괄임금제",
+    "무료 계약서 검토",
+    "계약서 검토 비용",
   ],
   metadataBase: new URL(siteUrl),
   alternates: {
@@ -67,6 +75,10 @@ export const metadata: Metadata = {
   verification: {
     google: "3OkjLzNTop9qBNQnk3wSmKDTymocYsa9X09ZMcN9Vz0",
   },
+  other: {
+    // 네이버 서치어드바이저 인증 코드 (등록 후 실제 값으로 교체)
+    // "naver-site-verification": "YOUR_NAVER_CODE",
+  },
 };
 
 export default function RootLayout({
@@ -78,6 +90,11 @@ export default function RootLayout({
     <html lang="ko">
       <head>
         <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+        <link
+          rel="preload"
+          as="style"
+          href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+        />
         <link
           rel="stylesheet"
           as="style"

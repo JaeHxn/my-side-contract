@@ -4,19 +4,15 @@ import { ArrowLeft } from "lucide-react";
 import { UploadAnalyzer } from "@/components/upload-analyzer";
 
 export const metadata: Metadata = {
-  title: "계약서 분석하기",
+  title: "계약서 분석 | 내편계약서",
   description:
-    "전월세·근로·인테리어·프리랜서 계약서를 업로드하거나 붙여넣으면 AI가 법령 근거와 함께 불리한 조항을 즉시 분석합니다. PDF·사진 OCR 지원.",
-  alternates: {
-    canonical: "/upload",
-  },
+    "전월세·근로·인테리어·프리랜서 계약서를 업로드하고 AI 분석 코드를 입력하면 즉시 분석 결과를 확인할 수 있습니다.",
+  robots: { index: false, follow: false },
+  alternates: { canonical: "/upload" },
   openGraph: {
-    title: "계약서 분석하기 | 내편계약서",
+    title: "계약서 분석 | 내편계약서",
     description:
       "계약서를 업로드하면 AI가 법령 근거와 함께 불리한 조항을 즉시 찾아드립니다.",
-  },
-  robots: {
-    index: false,
   },
 };
 
