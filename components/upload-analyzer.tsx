@@ -392,7 +392,7 @@ export function UploadAnalyzer() {
                     {isOcrProcessing ? (
                       <span className="inline-flex items-center gap-2">
                         <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                        OCR 텍스트 추출 중
+                        이미지 텍스트 추출 중...
                       </span>
                     ) : (
                       fileName || "계약서 파일 업로드"
@@ -440,9 +440,17 @@ export function UploadAnalyzer() {
           </div>
 
           <div className="mb-5">
-            <label className="mb-2 block text-sm font-bold text-ink" htmlFor="accessCode">
-              6자리 분석 코드
-            </label>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <label className="text-sm font-bold text-ink" htmlFor="accessCode">
+                6자리 분석 코드
+              </label>
+              <Link
+                className="inline-flex items-center gap-1 text-xs font-semibold text-sage transition hover:text-sage/70"
+                href="/payment"
+              >
+                코드가 없으신가요? 결제하기 →
+              </Link>
+            </div>
             <input
               className="w-full rounded-lg border border-ink/10 bg-paper/70 px-4 py-3 text-lg font-bold tracking-normal text-ink outline-none transition placeholder:text-ink/35 focus:border-sage focus:bg-white focus:ring-4 focus:ring-sage/12"
               id="accessCode"

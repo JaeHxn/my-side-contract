@@ -14,37 +14,37 @@ const badgeConfig: Record<
 > = {
   danger: {
     label: "위험",
-    className: "border-danger/25 bg-danger/10 text-danger",
+    className: "border-danger/30 bg-danger/10 text-red-700",
     icon: ShieldAlert
   },
   high: {
     label: "고위험",
-    className: "border-danger/25 bg-danger/10 text-danger",
+    className: "border-danger/30 bg-danger/10 text-red-700",
     icon: ShieldAlert
   },
   warning: {
     label: "주의",
-    className: "border-warn/25 bg-warn/10 text-warn",
+    className: "border-warn/30 bg-warn/10 text-amber-800",
     icon: AlertTriangle
   },
   medium: {
     label: "점검 필요",
-    className: "border-warn/25 bg-warn/10 text-warn",
+    className: "border-warn/30 bg-warn/10 text-amber-800",
     icon: AlertTriangle
   },
   safe: {
     label: "정상",
-    className: "border-safe/25 bg-safe/10 text-safe",
+    className: "border-safe/30 bg-safe/10 text-green-800",
     icon: ShieldCheck
   },
   low: {
     label: "낮은 위험",
-    className: "border-safe/25 bg-safe/10 text-safe",
+    className: "border-safe/30 bg-safe/10 text-green-800",
     icon: CheckCircle2
   },
   missing: {
     label: "빠진 조항",
-    className: "border-ink/15 bg-ink/5 text-ink",
+    className: "border-ink/15 bg-ink/5 text-ink/70",
     icon: CircleHelp
   }
 };

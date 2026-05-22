@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeft, FileSearch, Loader2, RefreshCcw } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Copy, FileSearch, Loader2, RefreshCcw } from "lucide-react";
 import { LegalDisclaimer } from "@/components/legal-disclaimer";
 import { ResultCards } from "@/components/result-cards";
 import type { ContractAnalysisResult } from "@/src/lib/contracts/types";
@@ -65,6 +65,7 @@ function getLoadErrorMessage(response: Response, payload: ResultApiResponse) {
 
 export function ResultDetailClient({ resultId }: { resultId: string }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [copied, setCopied] = useState(false);
 
   const resultPath = useMemo(() => `/api/result/${encodeURIComponent(resultId)}`, [resultId]);
 
@@ -119,12 +120,38 @@ export function ResultDetailClient({ resultId }: { resultId: string }) {
           <Link className="text-lg font-black text-ink" href="/">
             내편계약서
           </Link>
-          <Link
-            className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-3 py-2 text-sm font-bold text-ink transition hover:border-sage/40 hover:text-sage"
-            href="/upload"
-          >
-            <ArrowLeft aria-hidden="true" className="h-4 w-4" />새 분석
-          </Link>
+          <div className="flex items-center gap-2">
+            {state.status === "loaded" && (
+              <button
+                className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white px-3 py-2 text-sm font-bold text-ink transition hover:border-sage/40 hover:text-sage"
+                onClick={() => {
+                  void navigator.clipboard.writeText(window.location.href).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  });
+                }}
+                type="button"
+              >
+                {copied ? (
+                  <>
+                    <Check aria-hidden="true" className="h-4 w-4 text-sage" />
+                    복사됨
+                  </>
+                ) : (
+                  <>
+                    <Copy aria-hidden="true" className="h-4 w-4" />
+                    결과 링크 복사
+                  </>
+                )}
+              </button>
+            )}
+            <Link
+              className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-3 py-2 text-sm font-bold text-ink transition hover:border-sage/40 hover:text-sage"
+              href="/upload"
+            >
+              <ArrowLeft aria-hidden="true" className="h-4 w-4" />새 분석
+            </Link>
+          </div>
         </div>
       </header>
 

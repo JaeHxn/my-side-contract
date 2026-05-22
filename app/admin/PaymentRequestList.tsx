@@ -42,6 +42,7 @@ const METHOD_LABEL: Record<string, string> = {
 
 export default function PaymentRequestList() {
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
+  const [allRequests, setAllRequests] = useState<PaymentRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<FilterStatus>("pending");
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -50,12 +51,17 @@ export default function PaymentRequestList() {
   async function load() {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/admin/payment-requests?status=${filter}`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json() as { paymentRequests?: PaymentRequest[] };
+      const [filteredRes, allRes] = await Promise.all([
+        fetch(`/api/admin/payment-requests?status=${filter}`, { credentials: "include" }),
+        fetch(`/api/admin/payment-requests?status=all`, { credentials: "include" }),
+      ]);
+      if (filteredRes.ok) {
+        const data = await filteredRes.json() as { paymentRequests?: PaymentRequest[] };
         setRequests(data.paymentRequests ?? []);
+      }
+      if (allRes.ok) {
+        const data = await allRes.json() as { paymentRequests?: PaymentRequest[] };
+        setAllRequests(data.paymentRequests ?? []);
       }
     } finally {
       setIsLoading(false);
@@ -106,6 +112,22 @@ export default function PaymentRequestList() {
 
   return (
     <section className="rounded-3xl border border-ink/10 bg-white p-6 shadow-panel">
+      {/* 통계 배너 */}
+      {allRequests.length > 0 && (
+        <div className="mb-5 grid grid-cols-3 gap-3">
+          {[
+            { label: "대기", value: allRequests.filter((r) => r.status === "pending").length, color: "text-yellow-700 bg-yellow-50 border-yellow-200" },
+            { label: "완료", value: allRequests.filter((r) => r.status === "confirmed").length, color: "text-green-700 bg-green-50 border-green-200" },
+            { label: "전체", value: allRequests.length, color: "text-ink bg-paper border-ink/10" },
+          ].map((stat) => (
+            <div key={stat.label} className={`rounded-xl border px-3 py-2.5 text-center ${stat.color}`}>
+              <p className="text-xl font-black">{stat.value}</p>
+              <p className="text-xs font-semibold opacity-70">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* 헤더 */}
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-bold text-ink">결제 신청 목록</h2>

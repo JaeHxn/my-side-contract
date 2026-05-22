@@ -197,6 +197,25 @@ export default function PaymentPage() {
           홈으로
         </Link>
 
+        {/* 스텝 인디케이터 */}
+        <div className="mb-8 flex items-center gap-0">
+          {[
+            { n: "1", label: "결제" },
+            { n: "2", label: "정보 입력" },
+            { n: "3", label: "코드 수신" },
+          ].map((step, i) => (
+            <div key={step.n} className="flex items-center">
+              <div className={`flex items-center gap-1.5 ${i === 0 ? "text-ink" : "text-ink/35"}`}>
+                <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-black ${i === 0 ? "bg-sage text-white" : "bg-ink/10 text-ink/40"}`}>
+                  {step.n}
+                </span>
+                <span className="text-xs font-semibold">{step.label}</span>
+              </div>
+              {i < 2 && <span className="mx-2 text-ink/20">›</span>}
+            </div>
+          ))}
+        </div>
+
         {/* 헤더 */}
         <div className="mb-8">
           <div className="mb-3 flex items-center gap-2">
