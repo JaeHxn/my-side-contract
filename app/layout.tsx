@@ -77,6 +77,13 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+        <link
+          rel="stylesheet"
+          as="style"
+          crossOrigin="anonymous"
+          href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+        />
         <StructuredData />
       </head>
       <body>{children}</body>

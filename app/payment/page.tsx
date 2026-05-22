@@ -9,6 +9,8 @@ const BANK_NAME = process.env.NEXT_PUBLIC_PAYMENT_BANK_NAME ?? "카카오뱅크"
 const ACCOUNT_NUMBER = process.env.NEXT_PUBLIC_PAYMENT_ACCOUNT ?? "계좌번호 미설정";
 const ACCOUNT_HOLDER = process.env.NEXT_PUBLIC_PAYMENT_HOLDER ?? "예금주 미설정";
 const PRICE = "3,900";
+const ORIGINAL_PRICE = "8,900";
+const DISCOUNT_RATE = "56%";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -16,23 +18,32 @@ type PayMethod = "kakaopay" | "bank";
 
 function KakaoPaySection() {
   return (
-    <div className="flex flex-col items-center gap-6 py-4">
-      <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-yellow-400 shadow-lg">
-        <span className="text-3xl font-black text-white">K</span>
+    <div className="flex flex-col items-center gap-5 py-4">
+      {/* 카카오페이 브랜드 영역 */}
+      <div className="flex w-full items-center gap-4 rounded-2xl bg-[#FEE500] px-6 py-5">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-black/10">
+          <span className="text-xl font-black text-black">K</span>
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-black text-black">카카오페이</p>
+          <p className="mt-0.5 text-xs text-black/60">터치 한 번으로 간편 송금</p>
+        </div>
+        <div className="ml-auto text-right">
+          <p className="text-xs text-black/50 line-through">{ORIGINAL_PRICE}원</p>
+          <p className="text-lg font-black text-black">{PRICE}원</p>
+        </div>
       </div>
-      <div className="text-center">
-        <p className="text-lg font-bold text-ink">카카오페이로 간편 결제</p>
-        <p className="mt-1 text-sm text-ink/60">링크 클릭 후 {PRICE}원 송금</p>
-      </div>
+
       <a
         href={KAKAOPAY_LINK}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 rounded-2xl bg-yellow-400 px-8 py-4 text-base font-bold text-black shadow-panel transition hover:brightness-95 active:scale-95"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#FEE500] px-8 py-4 text-base font-black text-black shadow-panel transition hover:brightness-95 active:scale-95"
       >
-        카카오페이로 결제하기
+        카카오페이로 {PRICE}원 결제하기
         <ArrowRight className="h-4 w-4" />
       </a>
+
       <p className="text-center text-xs text-ink/50">
         결제 후 아래 양식을 작성해 제출해 주세요.
         <br />
@@ -51,35 +62,42 @@ function BankSection({
 }) {
   return (
     <div className="flex flex-col gap-4 py-4">
+      {/* 계좌 정보 카드 */}
       <div className="rounded-2xl border border-ink/10 bg-white p-5 shadow-sm">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-ink/40">
-          계좌 정보
+        <p className="mb-3 text-xs font-black uppercase tracking-widest text-ink/30">
+          계좌이체 정보
         </p>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-ink/60">{BANK_NAME}</p>
-            <p className="mt-0.5 text-xl font-bold tracking-widest text-ink">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-ink/50">{BANK_NAME}</p>
+            <p className="mt-1 text-2xl font-black tracking-widest text-ink">
               {ACCOUNT_NUMBER}
             </p>
-            <p className="mt-0.5 text-sm text-ink/60">예금주: {ACCOUNT_HOLDER}</p>
+            <p className="mt-1 text-xs text-ink/50">예금주 &nbsp;<strong className="text-ink/70">{ACCOUNT_HOLDER}</strong></p>
           </div>
           <button
             onClick={onCopy}
-            className="flex items-center gap-1.5 rounded-xl border border-ink/10 bg-paper px-3 py-2 text-xs font-semibold text-ink transition hover:bg-sage/10"
+            className="shrink-0 flex items-center gap-1.5 rounded-xl border border-ink/10 bg-paper px-3 py-2 text-xs font-bold text-ink transition hover:bg-sage/10 active:scale-95"
           >
-            <Copy className="h-3 w-3" />
-            {copied ? "복사됨!" : "복사"}
+            <Copy className="h-3.5 w-3.5" />
+            {copied ? "✔︎ 복사됨" : "복사"}
           </button>
         </div>
       </div>
-      <div className="rounded-xl bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-        <strong>이체 금액:</strong> {PRICE}원<br />
-        <span className="text-xs">입금자명을 아래에 기재해 주세요.</span>
+
+      {/* 이체 금액 배지 */}
+      <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <div>
+          <p className="text-xs font-semibold text-amber-700">이체 금액</p>
+          <p className="mt-0.5 text-xs text-amber-600/70 line-through">{ORIGINAL_PRICE}원</p>
+        </div>
+        <p className="text-2xl font-black text-amber-900">{PRICE}원</p>
       </div>
+
       <p className="text-center text-xs text-ink/50">
-        입금 확인 후 이메일로 이용 코드를 보내드립니다.
+        입금자명을 아래에 기재 → 입금 확인 후 이메일로 코드 발송
         <br />
-        최대 1시간 이내 발송됩니다.
+        <span className="font-semibold text-ink/60">최대 1시간 이내</span>
       </p>
     </div>
   );
@@ -190,10 +208,14 @@ export default function PaymentPage() {
             </span>
           </div>
           <h1 className="text-3xl font-black text-ink">이용권 구매</h1>
-          <p className="mt-2 text-ink/60">
-            계약서 AI 분석 1회 이용권 —{" "}
-            <span className="font-bold text-ink">{PRICE}원</span>
-          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span className="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-black text-rose-500 border border-rose-100">
+              {DISCOUNT_RATE} 할인 · 출시 특가
+            </span>
+            <span className="text-sm text-ink/40 line-through">{ORIGINAL_PRICE}원</span>
+            <span className="text-2xl font-black text-ink">{PRICE}원</span>
+          </div>
+          <p className="mt-1 text-sm text-ink/50">계약서 AI 분석 1회 이용권</p>
         </div>
 
         {/* 결제 방법 탭 */}

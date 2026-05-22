@@ -233,7 +233,15 @@ export default function HomePage() {
             전월세·근로 계약서의 불리한 조항, 불법 가능 문구, 빠진 보호 조항을
             법령 근거와 함께 쉬운 말로 정리합니다.
           </p>
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-7">
+          <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="inline-flex items-center rounded-full border border-rose-100 bg-rose-50 px-2.5 py-0.5 text-xs font-black text-rose-500">
+              출시 특가 56% 할인
+            </span>
+            <span className="text-sm text-ink/40 line-through">8,900원</span>
+            <span className="text-sm font-black text-ink">→ 3,900원</span>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
             <Link
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-ink px-5 py-4 text-base font-black text-paper shadow-lg shadow-ink/15 transition hover:bg-sage"
               href="/payment"
@@ -247,6 +255,7 @@ export default function HomePage() {
             >
               코드 있으면 바로 분석
             </Link>
+          </div>
           </div>
           <div className="mt-6 grid grid-cols-1 gap-2 text-sm font-bold text-ink/60 sm:max-w-lg sm:grid-cols-3">
             <div className="flex min-w-0 items-center gap-1.5">
