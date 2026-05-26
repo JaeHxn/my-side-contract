@@ -67,13 +67,17 @@ export async function POST(request: Request) {
   const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
   const requestId = (row?.id as string | undefined) ?? null;
 
-  sendPaymentNotification({
-    depositorName: (depositorName as string).trim(),
-    email: (email as string).trim().toLowerCase(),
-    method: method === "kakaopay" ? "kakaopay" : "bank",
-    amount: PRICE,
-    requestId,
-  }).catch((err) => console.error("[payment] 알림 이메일 발송 실패:", err));
+  try {
+    await sendPaymentNotification({
+      depositorName: (depositorName as string).trim(),
+      email: (email as string).trim().toLowerCase(),
+      method: method === "kakaopay" ? "kakaopay" : "bank",
+      amount: PRICE,
+      requestId,
+    });
+  } catch (err) {
+    console.error("[payment] 알림 이메일 발송 실패:", err);
+  }
 
   return NextResponse.json({ ok: true, requestId }, { status: 201 });
 }
