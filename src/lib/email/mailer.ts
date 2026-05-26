@@ -61,6 +61,102 @@ export async function sendAccessCodeEmail({
   });
 }
 
+// ── 관리자 결제 신청 알림 ─────────────────────────────────────────────────
+
+export interface PaymentNotificationOptions {
+  depositorName: string;
+  email: string;
+  method: string;
+  amount: number;
+  requestId: string | null;
+}
+
+/**
+ * 새 결제 신청이 들어오면 관리자(GMAIL_USER)에게 알림 이메일을 보낸다.
+ * 실패해도 결제 신청 자체는 막지 않으므로 에러를 throw하지 않는다.
+ */
+export async function sendPaymentNotification(opts: PaymentNotificationOptions): Promise<void> {
+  let config: { user: string; pass: string };
+  try {
+    config = getGmailConfig();
+  } catch {
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: config.user, pass: config.pass },
+  });
+
+  const methodLabel = opts.method === "kakaopay" ? "카카오페이" : "계좌이체";
+  const now = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+  const adminUrl =
+    process.env.NEXT_PUBLIC_SITE_URL
+      ? `${process.env.NEXT_PUBLIC_SITE_URL}/admin`
+      : "https://naepyeon-contract.vercel.app/admin";
+
+  await transporter.sendMail({
+    from: `"내편계약서 알림" <${config.user}>`,
+    to: config.user,
+    subject: `[결제신청] ${opts.depositorName} · ${opts.amount.toLocaleString()}원 · ${methodLabel}`,
+    html: `<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f5f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4f0;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:#18181a;padding:24px 32px;">
+            <p style="margin:0;font-size:18px;font-weight:900;color:#fff;">내편계약서</p>
+            <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.45);">관리자 알림</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <h2 style="margin:0 0 20px;font-size:20px;font-weight:900;color:#18181a;">결제 신청이 들어왔습니다 🔔</h2>
+            <table cellpadding="0" cellspacing="0" width="100%" style="font-size:14px;color:#374151;border-collapse:collapse;">
+              <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:10px 0;color:#6b7280;width:90px;">입금자명</td>
+                <td style="padding:10px 0;font-weight:700;">${opts.depositorName}</td>
+              </tr>
+              <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:10px 0;color:#6b7280;">이메일</td>
+                <td style="padding:10px 0;">${opts.email}</td>
+              </tr>
+              <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:10px 0;color:#6b7280;">결제 방법</td>
+                <td style="padding:10px 0;">${methodLabel}</td>
+              </tr>
+              <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:10px 0;color:#6b7280;">금액</td>
+                <td style="padding:10px 0;font-weight:700;">${opts.amount.toLocaleString()}원</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 0;color:#6b7280;">신청 시각</td>
+                <td style="padding:10px 0;">${now}</td>
+              </tr>
+            </table>
+            <div style="margin-top:24px;text-align:center;">
+              <a href="${adminUrl}" style="display:inline-block;background:#18181a;color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:14px;font-weight:700;">
+                관리자 페이지에서 코드 발급 &rarr;
+              </a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f5f4f0;padding:16px 32px;border-top:1px solid #ebebeb;">
+            <p style="margin:0;font-size:11px;color:#aaa;text-align:center;">&copy; 2026 내편계약서 &middot; 자동 발송 알림</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+  });
+}
+
 /* ────────────────────────────────────────────────
    HTML 이메일 템플릿
    ──────────────────────────────────────────────── */

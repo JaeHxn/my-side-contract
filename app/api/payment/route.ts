@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerConfig, SupabaseConfigError } from "@/src/lib/supabase/server";
 import { checkRateLimit, getClientIp } from "@/src/lib/server/rate-limit";
+import { sendPaymentNotification } from "@/src/lib/email/mailer";
 
 const PRICE = 3900;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -64,5 +65,15 @@ export async function POST(request: Request) {
   }
 
   const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
-  return NextResponse.json({ ok: true, requestId: row?.id ?? null }, { status: 201 });
+  const requestId = (row?.id as string | undefined) ?? null;
+
+  sendPaymentNotification({
+    depositorName: (depositorName as string).trim(),
+    email: (email as string).trim().toLowerCase(),
+    method: method === "kakaopay" ? "kakaopay" : "bank",
+    amount: PRICE,
+    requestId,
+  }).catch((err) => console.error("[payment] 알림 이메일 발송 실패:", err));
+
+  return NextResponse.json({ ok: true, requestId }, { status: 201 });
 }
