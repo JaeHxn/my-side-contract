@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OcrProviderError, OcrValidationError, extractContractTextFromFile } from "@/src/lib/ocr/openai-ocr";
+import { verifyAnalysisAccessCode } from "@/src/lib/server/access-codes";
 import { POST } from "./route";
 
 vi.mock("@/src/lib/ocr/openai-ocr", async (importOriginal) => {
@@ -11,9 +12,22 @@ vi.mock("@/src/lib/ocr/openai-ocr", async (importOriginal) => {
   };
 });
 
+vi.mock("@/src/lib/server/access-codes", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/src/lib/server/access-codes")>();
+
+  return {
+    ...actual,
+    verifyAnalysisAccessCode: vi.fn()
+  };
+});
+
+let requestCounter = 0;
+
 describe("POST /api/ocr", () => {
   beforeEach(() => {
     vi.mocked(extractContractTextFromFile).mockReset();
+    vi.mocked(verifyAnalysisAccessCode).mockReset();
+    vi.mocked(verifyAnalysisAccessCode).mockResolvedValue({ ok: true, accessCode: { code: "123456" } as never });
   });
 
   it("extracts text from an uploaded file", async () => {
@@ -39,6 +53,7 @@ describe("POST /api/ocr", () => {
     });
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(verifyAnalysisAccessCode).toHaveBeenCalledWith("123456");
     expect(extractContractTextFromFile).toHaveBeenCalledWith({
       bytes: expect.any(Buffer),
       fileName: "contract.pdf",
@@ -47,15 +62,36 @@ describe("POST /api/ocr", () => {
   });
 
   it("returns 400 when no file is included", async () => {
-    const response = await POST(
-      new Request("http://localhost/api/ocr", {
-        method: "POST",
-        body: new FormData()
-      })
-    );
+    const request = new Request("http://localhost/api/ocr", {
+      method: "POST",
+      headers: testClientHeaders()
+    });
+    vi.spyOn(request, "formData").mockResolvedValue({
+      get: (key: string) => (key === "accessCode" ? "123456" : null)
+    } as FormData);
+
+    const response = await POST(request);
 
     await expect(response.json()).resolves.toMatchObject({ error: "INVALID_REQUEST" });
     expect(response.status).toBe(400);
+    expect(extractContractTextFromFile).not.toHaveBeenCalled();
+  });
+
+  it("rejects missing access codes before reading the uploaded file", async () => {
+    const request = createMultipartRequest(
+      {
+        name: "contract.pdf",
+        type: "application/pdf",
+        bytes: Buffer.from("%PDF")
+      },
+      ""
+    );
+
+    const response = await POST(request);
+
+    await expect(response.json()).resolves.toMatchObject({ error: "INVALID_ACCESS_CODE" });
+    expect(response.status).toBe(401);
+    expect(verifyAnalysisAccessCode).not.toHaveBeenCalled();
     expect(extractContractTextFromFile).not.toHaveBeenCalled();
   });
 
@@ -85,19 +121,33 @@ describe("POST /api/ocr", () => {
   });
 });
 
-function createMultipartRequest(file: { name: string; type: string; bytes: Buffer }) {
-  const request = new Request("http://localhost/api/ocr", { method: "POST" });
+function createMultipartRequest(file: { name: string; type: string; bytes: Buffer }, accessCode = "123456") {
+  const request = new Request("http://localhost/api/ocr", {
+    method: "POST",
+    headers: testClientHeaders()
+  });
   vi.spyOn(request, "formData").mockResolvedValue({
-    get: (key: string) =>
-      key === "file"
-        ? {
-            name: file.name,
-            type: file.type,
-            arrayBuffer: async () =>
-              file.bytes.buffer.slice(file.bytes.byteOffset, file.bytes.byteOffset + file.bytes.byteLength)
-          }
-        : null
+    get: (key: string) => {
+      if (key === "accessCode") return accessCode;
+      if (key === "file") {
+        return {
+          name: file.name,
+          type: file.type,
+          arrayBuffer: async () =>
+            file.bytes.buffer.slice(file.bytes.byteOffset, file.bytes.byteOffset + file.bytes.byteLength)
+        };
+      }
+
+      return null;
+    }
   } as FormData);
 
   return request;
+}
+
+function testClientHeaders() {
+  requestCounter += 1;
+  return {
+    "x-forwarded-for": `203.0.113.${requestCounter}`
+  };
 }
