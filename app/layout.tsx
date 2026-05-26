@@ -78,8 +78,7 @@ export const metadata: Metadata = {
   },
   other: {
     "theme-color": "#1a1a1a",
-    // 네이버 서치어드바이저 인증 코드 (등록 후 실제 값으로 교체)
-    // "naver-site-verification": "YOUR_NAVER_CODE",
+    "naver-site-verification": "0c5be411b6be519cc76dad9ff52be3fe11cd5469",
   },
 };
 
