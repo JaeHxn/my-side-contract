@@ -10,6 +10,7 @@ import { AccessCodeIssuer } from "./AccessCodeIssuer";
 import { AdminLoginForm } from "./AdminLoginForm";
 import { AdminLogoutButton } from "./AdminLogoutButton";
 import PaymentRequestList from "./PaymentRequestList";
+import FeedbackList from "./FeedbackList";
 import { ThreadsConnectButton } from "./ThreadsConnectButton";
 
 export const metadata = {
@@ -113,6 +114,7 @@ export default async function AdminPage() {
         ) : isAuthenticated ? (
           <div className="space-y-6">
             <PaymentRequestList />
+            <FeedbackList />
             <AccessCodeIssuer />
             <ThreadsSection />
           </div>

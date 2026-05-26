@@ -32,6 +32,7 @@ export interface SupabaseRestClient {
     options?: SupabaseSelectOptions
   ): Promise<Row | null>;
   upsertOne<Row>(table: string, record: Record<string, unknown>, options?: SupabaseUpsertOptions): Promise<Row>;
+  insertOne<Row>(table: string, record: Record<string, unknown>): Promise<Row>;
 }
 
 export class SupabaseConfigError extends Error {
@@ -169,6 +170,26 @@ class SupabaseRestClientImpl implements SupabaseRestClient {
       throw new SupabaseRequestError("Supabase upsert response did not include a row.", response.status, payload);
     }
 
+    return payload[0] as Row;
+  }
+
+  async insertOne<Row>(table: string, record: Record<string, unknown>): Promise<Row> {
+    const url = this.createTableUrl(table);
+    const response = await this.fetchImpl(url, {
+      method: "POST",
+      headers: this.authHeaders({
+        "content-type": "application/json",
+        prefer: "return=representation",
+      }),
+      body: JSON.stringify(record),
+    });
+    const payload = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new SupabaseRequestError("Supabase insert request failed.", response.status, payload);
+    }
+    if (!Array.isArray(payload) || payload.length === 0) {
+      throw new SupabaseRequestError("Supabase insert response did not include a row.", response.status, payload);
+    }
     return payload[0] as Row;
   }
 

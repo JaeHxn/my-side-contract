@@ -34,6 +34,7 @@ function createClient(overrides: Partial<SupabaseRestClient> = {}): SupabaseRest
     selectMany: vi.fn(),
     selectOne: vi.fn(),
     upsertOne: vi.fn(),
+    insertOne: vi.fn(),
     ...overrides
   };
 }
