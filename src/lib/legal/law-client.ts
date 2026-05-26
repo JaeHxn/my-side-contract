@@ -27,28 +27,35 @@ export async function fetchHousingLeaseLawReferences(): Promise<LawReference[]> 
 
 const categoryQueries: Record<ContractCategory, LawApiQuery[]> = {
   "housing-lease": [
-    { query: "주택임대차보호법", articles: ["4", "3", "6", "6의3", "7"] },
-    { query: "민법", articles: ["398", "623", "626"] },
-    { query: "공인중개사법", articles: ["25", "32"] },
+    { query: "주택임대차보호법", articles: ["2", "3", "3의2", "3의4", "4", "5", "6", "6의2", "6의3", "7", "8", "9", "10", "12"] },
+    { query: "민법", articles: ["618", "621", "623", "624", "625", "626", "628", "629", "632", "635"] },
+    { query: "공인중개사법", articles: ["25", "26", "32", "33"] },
+    { query: "집합건물의 소유 및 관리에 관한 법률", articles: ["5", "9", "17", "42"] },
   ],
   labor: [
-    { query: "근로기준법", articles: ["17", "20", "50", "53", "54", "56", "60"] },
-    { query: "최저임금법", articles: ["6"] },
-    { query: "근로자퇴직급여 보장법", articles: ["4", "8"] },
+    { query: "근로기준법", articles: ["6", "7", "9", "15", "17", "18", "19", "20", "21", "22", "23", "26", "27", "36", "43", "46", "50", "52", "53", "54", "55", "56", "60", "74", "76의2", "76의3"] },
+    { query: "최저임금법", articles: ["6", "7", "8"] },
+    { query: "근로자퇴직급여 보장법", articles: ["4", "8", "9", "17"] },
+    { query: "기간제 및 단시간근로자 보호 등에 관한 법률", articles: ["4", "5", "6", "9"] },
+    { query: "남녀고용평등과 일·가정 양립 지원에 관한 법률", articles: ["7", "8", "11", "12", "14"] },
   ],
   wedding: [
-    { query: "소비자기본법", articles: ["19", "55"] },
-    { query: "약관의 규제에 관한 법률", articles: ["6", "8", "9"] },
+    { query: "소비자기본법", articles: ["4", "19", "53", "55"] },
+    { query: "약관의 규제에 관한 법률", articles: ["3", "6", "7", "8", "9", "10", "11"] },
+    { query: "방문판매 등에 관한 법률", articles: ["8", "9", "10", "13"] },
+    { query: "전자상거래 등에서의 소비자보호에 관한 법률", articles: ["17", "18", "20"] },
   ],
   interior: [
-    { query: "건설산업기본법", articles: ["16", "28"] },
-    { query: "민법", articles: ["664", "665", "667", "670"] },
-    { query: "소비자기본법", articles: ["19"] },
+    { query: "건설산업기본법", articles: ["16", "21", "22", "28", "40"] },
+    { query: "민법", articles: ["664", "665", "666", "667", "668", "669", "670", "671"] },
+    { query: "소비자기본법", articles: ["19", "55"] },
+    { query: "건축법", articles: ["19", "25", "29"] },
   ],
   freelance: [
-    { query: "민법", articles: ["680", "684", "686"] },
-    { query: "저작권법", articles: ["45", "46"] },
-    { query: "하도급거래 공정화에 관한 법률", articles: ["3", "13", "25"] },
+    { query: "민법", articles: ["680", "681", "682", "683", "684", "686", "689"] },
+    { query: "저작권법", articles: ["9", "45", "46", "63", "100", "101의4"] },
+    { query: "하도급거래 공정화에 관한 법률", articles: ["3", "11", "13", "14", "25"] },
+    { query: "부정경쟁방지 및 영업비밀보호에 관한 법률", articles: ["2", "10", "18"] },
   ],
 };
 
@@ -85,7 +92,6 @@ async function fetchArticleReference(
   const jo = toJoParam(articleNumber);
   const text = await mcpFetchLawArticle(lawName, jo);
   if (!text) return null;
-
   return {
     title: lawName,
     article: jo,
@@ -101,7 +107,6 @@ async function fetchLawReferencesViaMcp(query: LawApiQuery): Promise<LawReferenc
   const results = await Promise.allSettled(
     query.articles.map((article) => fetchArticleReference(query.query, article, checkedAt))
   );
-
   return results
     .filter((r): r is PromiseFulfilledResult<LawReference | null> => r.status === "fulfilled")
     .map((r) => r.value)
@@ -131,34 +136,18 @@ export async function fetchLawReferencesForCategory(
   return references;
 }
 
-// ── MCP 판례·해석례 강화 조회 ───────────────────────────────────────────
+// ── MCP 판례·해석례 강화 조회 ───────────────────────────────────────────────
 
 const MCP_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const mcpCache = new Map<string, { references: LawReference[]; expiresAt: number }>();
 
-const mcpCategoryQueries: Record<ContractCategory, { precedent: string; interpretation: string }> =
-  {
-    "housing-lease": {
-      precedent: "주택임대차 계약갱신",
-      interpretation: "주택임대차보호법",
-    },
-    labor: {
-      precedent: "근로기준법 포괄임금",
-      interpretation: "근로기준법 최저임금",
-    },
-    interior: {
-      precedent: "도급 하자담보책임",
-      interpretation: "건설산업기본법",
-    },
-    freelance: {
-      precedent: "저작권 양도",
-      interpretation: "하도급법",
-    },
-    wedding: {
-      precedent: "소비자 계약 취소 위약금",
-      interpretation: "소비자분쟁해결기준",
-    },
-  };
+const mcpCategoryQueries: Record<ContractCategory, { precedent: string; interpretation: string }> = {
+  "housing-lease": { precedent: "주택임대차 계약갱신", interpretation: "주택임대차보호법" },
+  labor: { precedent: "근로기준법 포괄임금", interpretation: "근로기준법 최저임금" },
+  interior: { precedent: "도급 하자담보책임", interpretation: "건설산업기본법" },
+  freelance: { precedent: "저작권 양도", interpretation: "하도급법" },
+  wedding: { precedent: "소비자 계약 취소 위약금", interpretation: "소비자분쟁해결기준" },
+};
 
 export async function fetchMcpEnhancedReferences(
   category: ContractCategory
@@ -206,7 +195,6 @@ export async function fetchMcpEnhancedReferences(
 function dedupeLawReferences(references: LawReference[]): LawReference[] {
   const seen = new Set<string>();
   const deduped: LawReference[] = [];
-
   for (const reference of references) {
     const key = [reference.title, reference.article ?? "", reference.excerpt ?? ""].join("|");
     if (!seen.has(key)) {
@@ -214,6 +202,5 @@ function dedupeLawReferences(references: LawReference[]): LawReference[] {
       deduped.push(reference);
     }
   }
-
   return deduped;
 }
