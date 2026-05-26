@@ -1,6 +1,7 @@
 import type { ContractAnalysisResult } from "../contracts/types";
 import type { ContractCategory } from "../contracts/types";
 import { redactPii } from "../privacy/pii-redaction";
+import { fetchMcpEnhancedReferences } from "../legal/law-client";
 import {
   buildContractAnalysisPrompt,
   DEFAULT_OPENAI_ANALYSIS_MODEL,
@@ -44,6 +45,11 @@ async function callOpenAi(
   legalReferences: ContractAnalysisResult["legalReferences"] = []
 ): Promise<string> {
   const { redactedText } = redactPii(contractText);
+
+  // MCP 판례·해석례 병렬 조회 (실패해도 분석 진행)
+  const mcpRefs = await fetchMcpEnhancedReferences(category).catch(() => []);
+  const allReferences = [...legalReferences, ...mcpRefs];
+
   const response = await fetch(OPENAI_RESPONSES_URL, {
     method: "POST",
     headers: {
@@ -53,7 +59,7 @@ async function callOpenAi(
     body: JSON.stringify({
       model: getOpenAiModel(),
       max_output_tokens: 220,
-      input: buildContractAnalysisPrompt(redactedText, category, legalReferences)
+      input: buildContractAnalysisPrompt(redactedText, category, allReferences)
     })
   });
 

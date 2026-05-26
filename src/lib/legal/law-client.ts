@@ -1,4 +1,5 @@
 import type { ContractCategory, LawReference } from "../contracts/types";
+import { mcpSearchPrecedents, mcpSearchInterpretationDecisions, mcpChainResearch } from "./mcp-law-client";
 import {
   freelanceLawReferences,
   housingLeaseLawReferences,
@@ -372,6 +373,82 @@ function createPublicLawUrl(title: string, rawLink: unknown): string | undefined
 
   return link.startsWith("http") ? link : `https://www.law.go.kr${link}`;
 }
+
+// ── MCP 판례·해석례 강화 조회 ──────────────────────────────────────────
+
+const MCP_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const mcpCache = new Map<string, { references: LawReference[]; expiresAt: number }>();
+
+const mcpCategoryQueries: Record<ContractCategory, { precedent: string; interpretation: string }> = {
+  "housing-lease": {
+    precedent: "주택임대차 계약갱신",
+    interpretation: "주택임대차보호법"
+  },
+  labor: {
+    precedent: "근로기준법 포괄임금",
+    interpretation: "근로기준법 최저임금"
+  },
+  interior: {
+    precedent: "도급 하자담보책임",
+    interpretation: "건설산업기본법"
+  },
+  freelance: {
+    precedent: "저작권 양도",
+    interpretation: "하도급법"
+  },
+  wedding: {
+    precedent: "소비자 계약 취소 위약금",
+    interpretation: "소비자분쟁해결기준"
+  }
+};
+
+/**
+ * korean-law-mcp 서버에서 카테고리별 판례·해석례를 조회한다.
+ * KOREAN_LAW_MCP_URL 환경변수가 없으면 빈 배열을 반환한다.
+ * 실패해도 기존 분석에 영향을 주지 않는다.
+ */
+export async function fetchMcpEnhancedReferences(category: ContractCategory): Promise<LawReference[]> {
+  if (!process.env.KOREAN_LAW_MCP_URL) return [];
+
+  const cached = mcpCache.get(category);
+  if (cached && cached.expiresAt > Date.now()) return cached.references;
+
+  const { precedent, interpretation } = mcpCategoryQueries[category];
+  const checkedAt = new Date().toISOString();
+
+  const [precedentResult, interpretationResult] = await Promise.allSettled([
+    mcpSearchPrecedents(precedent),
+    mcpSearchInterpretationDecisions(interpretation).catch(() => mcpChainResearch(interpretation))
+  ]);
+
+  const references: LawReference[] = [];
+
+  if (precedentResult.status === "fulfilled" && precedentResult.value) {
+    references.push({
+      title: "관련 판례",
+      excerpt: precedentResult.value.slice(0, 600),
+      source: "mcp",
+      lastChecked: checkedAt
+    });
+  }
+
+  if (interpretationResult.status === "fulfilled" && interpretationResult.value) {
+    references.push({
+      title: "행정해석·해석례",
+      excerpt: interpretationResult.value.slice(0, 600),
+      source: "mcp",
+      lastChecked: checkedAt
+    });
+  }
+
+  if (references.length > 0) {
+    mcpCache.set(category, { references, expiresAt: Date.now() + MCP_CACHE_TTL_MS });
+  }
+
+  return references;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 
 function dedupeLawReferences(references: LawReference[]): LawReference[] {
   const seen = new Set<string>();

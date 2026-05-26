@@ -136,7 +136,8 @@ export function UploadAnalyzer() {
 
   const characterCount = useMemo(() => contractText.trim().length, [contractText]);
   const activeCategoryInfo = categoryDescriptions[category];
-  const canSubmit = characterCount >= 30 && /^\d{6}$/.test(accessCode.trim()) && !isSubmitting && !isOcrProcessing;
+  const codeIsValid = /^\d{6}$/.test(accessCode.trim());
+  const canSubmit = characterCount >= 30 && codeIsValid && !isSubmitting && !isOcrProcessing;
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
@@ -156,6 +157,11 @@ export function UploadAnalyzer() {
     }
 
     if (uploadKind === "ocr") {
+      if (!codeIsValid) {
+        setError("파일 분석 전에 6자리 분석 코드를 먼저 입력해주세요.");
+        input.value = "";
+        return;
+      }
       await handleOcrUpload(file);
       input.value = "";
       return;
@@ -189,6 +195,7 @@ export function UploadAnalyzer() {
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("accessCode", accessCode.trim());
 
     try {
       const response = await fetch("/api/ocr", {
@@ -379,12 +386,19 @@ export function UploadAnalyzer() {
             <label
               aria-busy={isOcrProcessing}
               className={[
-                "mb-3 flex items-center justify-between gap-3 rounded-lg border border-dashed border-sage/35 bg-sage/8 p-4 transition",
-                isOcrProcessing ? "cursor-wait opacity-75" : "cursor-pointer hover:bg-sage/12"
+                "mb-3 flex items-center justify-between gap-3 rounded-lg border border-dashed p-4 transition",
+                isOcrProcessing
+                  ? "cursor-wait border-sage/35 bg-sage/8 opacity-75"
+                  : !codeIsValid
+                    ? "cursor-not-allowed border-ink/15 bg-ink/4"
+                    : "cursor-pointer border-sage/35 bg-sage/8 hover:bg-sage/12"
               ].join(" ")}
             >
               <span className="flex min-w-0 items-center gap-3">
-                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sage">
+                <span className={[
+                  "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white",
+                  codeIsValid ? "text-sage" : "text-ink/35"
+                ].join(" ")}>
                   <UploadCloud aria-hidden="true" className="h-5 w-5" />
                 </span>
                 <span className="min-w-0">
@@ -394,6 +408,8 @@ export function UploadAnalyzer() {
                         <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
                         이미지 텍스트 추출 중...
                       </span>
+                    ) : !codeIsValid ? (
+                      <span className="text-ink/45">6자리 코드 입력 후 파일 업로드 가능</span>
                     ) : (
                       fileName || "계약서 파일 업로드"
                     )}
@@ -406,7 +422,7 @@ export function UploadAnalyzer() {
               <input
                 accept={acceptedUploadTypes}
                 className="sr-only"
-                disabled={isOcrProcessing}
+                disabled={isOcrProcessing || !codeIsValid}
                 onChange={handleFileChange}
                 type="file"
               />

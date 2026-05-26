@@ -10,7 +10,7 @@ export interface LawReference {
   title: string;
   article?: string;
   excerpt?: string;
-  source: "law-api" | "built-in";
+  source: "law-api" | "built-in" | "mcp";
   url?: string;
   lastChecked?: string;
 }

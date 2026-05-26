@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { OcrProviderError, OcrValidationError, extractContractTextFromFile } from "@/src/lib/ocr/openai-ocr";
+import { getAccessCodeAllowlist, verifyAccessCode } from "@/src/lib/payments/access-code";
+import { isDevelopmentSupabaseSetupError } from "@/src/lib/server/dev-fallback";
+import { verifyAnalysisAccessCode } from "@/src/lib/server/access-codes";
 import { checkRateLimit, getClientIp } from "@/src/lib/server/rate-limit";
 
 export const runtime = "nodejs";
@@ -12,6 +15,32 @@ export async function POST(request: Request) {
 
   const formData = await request.formData().catch(() => null);
   const file = formData?.get("file");
+  const accessCode = formData?.get("accessCode");
+
+  // 유효한 6자리 코드가 없으면 OCR 실행 전에 차단
+  if (typeof accessCode !== "string" || !/^\d{6}$/.test(accessCode.trim())) {
+    return jsonNoStore(
+      { error: "INVALID_ACCESS_CODE", message: "분석 코드를 먼저 입력해주세요. 6자리 코드가 확인되어야 파일을 처리할 수 있습니다." },
+      401
+    );
+  }
+
+  let codeCheck;
+  try {
+    codeCheck = await verifyOcrAccessCode(accessCode.trim());
+  } catch {
+    return jsonNoStore(
+      { error: "ACCESS_CODE_CHECK_FAILED", message: "코드 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." },
+      503
+    );
+  }
+
+  if (!codeCheck.ok) {
+    return jsonNoStore(
+      { error: "INVALID_ACCESS_CODE", message: codeCheck.reason ?? "유효하지 않은 분석 코드입니다." },
+      401
+    );
+  }
 
   if (!isFileLike(file)) {
     return jsonNoStore(
@@ -111,6 +140,17 @@ function mapOcrProviderStatus(status: number | undefined) {
     message: "파일에서 텍스트를 읽지 못했습니다. 더 선명한 사진이나 PDF로 다시 시도해주세요.",
     httpStatus: 502
   };
+}
+
+async function verifyOcrAccessCode(accessCode: string) {
+  try {
+    return await verifyAnalysisAccessCode(accessCode);
+  } catch (error) {
+    if (isDevelopmentSupabaseSetupError(error)) {
+      return verifyAccessCode(accessCode, getAccessCodeAllowlist());
+    }
+    throw error;
+  }
 }
 
 function jsonNoStore(body: unknown, status = 200) {

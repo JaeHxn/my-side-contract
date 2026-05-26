@@ -125,6 +125,8 @@ export function buildContractAnalysisPrompt(
   const profile = categoryProfiles[category];
 
   const liveLawReferences = legalReferences.filter((reference) => reference.source === "law-api").slice(0, 12);
+  const mcpReferences = legalReferences.filter((reference) => reference.source === "mcp").slice(0, 4);
+
   const lawsIntro =
     liveLawReferences.length > 0
       ? "[국가법령정보센터 API에서 조회한 현재 법령 조문]"
@@ -135,6 +137,15 @@ export function buildContractAnalysisPrompt(
       : profile.primaryLaws.map((law, index) => `  ${index + 1}. ${law}`).join("\n");
   const focusBlock = profile.focusPoints.map((point) => `  - ${point}`).join("\n");
 
+  const mcpBlock =
+    mcpReferences.length > 0
+      ? [
+          "",
+          "[판례·행정해석 참고 (korean-law-mcp 조회)]",
+          mcpReferences.map((r) => `  • ${r.title}: ${r.excerpt ?? ""}`).join("\n")
+        ].join("\n")
+      : "";
+
   return [
     "[역할]",
     `당신은 대한민국에서 15년간 ${profile.expertise}를 전문으로 활동해 온 변호사입니다.`,
@@ -142,6 +153,7 @@ export function buildContractAnalysisPrompt(
     "",
     lawsIntro,
     lawsBlock,
+    mcpBlock,
     "",
     "[이 계약 유형에서 반드시 짚어야 할 체크포인트]",
     focusBlock,

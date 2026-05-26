@@ -8,6 +8,7 @@ coverage/
 dist/
 *.tsbuildinfo
 supabase/.temp/
+marketing/**/free-codes-*.md
 
 .vercel
 .env*.local
