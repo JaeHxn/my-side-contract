@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BetaBanner } from "@/components/beta-banner";
 import {
   AlertTriangle,
   ArrowRight,
@@ -207,17 +208,7 @@ function ContractPreview() {
 export default function HomePage() {
   return (
     <main className="min-h-screen">
-      {/* 베타 서비스 배너 */}
-      <div className="w-full bg-sage/90 px-4 py-2 text-center text-xs font-bold text-white sm:text-sm">
-        ⚡ 베타 서비스 운영 중 — 피드백·오류 제보는{" "}
-        <a
-          href="mailto:skfkgksrnr@gmail.com"
-          className="underline underline-offset-2 opacity-90 hover:opacity-100"
-        >
-          이메일
-        </a>
-        로 보내주세요. 소중히 반영하겠습니다.
-      </div>
+      <BetaBanner />
 
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-5 sm:px-6 lg:px-8">
         <Link className="shrink-0 text-xl font-black text-ink" href="/">
