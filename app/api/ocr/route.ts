@@ -14,20 +14,29 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData().catch(() => null);
-  const file = formData?.get("file");
-  const accessCode = formData?.get("accessCode");
+  if (!formData) {
+    return jsonNoStore(
+      { error: "UPLOAD_FAILED", message: "파일 업로드에 실패했습니다. 파일 크기(4MB 이하)를 확인하거나 다시 시도해주세요." },
+      400
+    );
+  }
+
+  const file = formData.get("file");
+  const rawCode = formData.get("accessCode");
 
   // 유효한 6자리 코드가 없으면 OCR 실행 전에 차단
-  if (typeof accessCode !== "string" || !/^\d{6}$/.test(accessCode.trim())) {
+  if (typeof rawCode !== "string" || !/^\d{6}$/.test(rawCode.trim())) {
     return jsonNoStore(
-      { error: "INVALID_ACCESS_CODE", message: "분석 코드를 먼저 입력해주세요. 6자리 코드가 확인되어야 파일을 처리할 수 있습니다." },
+      { error: "INVALID_ACCESS_CODE", message: "6자리 분析 코드를 먼저 입력해주세요." },
       401
     );
   }
 
+  const accessCode = rawCode.trim();
+
   let codeCheck;
   try {
-    codeCheck = await verifyOcrAccessCode(accessCode.trim());
+    codeCheck = await verifyOcrAccessCode(accessCode);
   } catch {
     return jsonNoStore(
       { error: "ACCESS_CODE_CHECK_FAILED", message: "코드 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." },

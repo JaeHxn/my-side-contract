@@ -28,7 +28,7 @@ function applyLiveLawReferences(
   analysis: ContractAnalysisResult,
   lawReferences: LawReference[]
 ): ContractAnalysisResult {
-  const liveLawReferences = lawReferences.filter((reference) => reference.source === "law-api");
+  const liveLawReferences = lawReferences.filter((reference) => reference.source !== "built-in");
 
   if (liveLawReferences.length === 0) {
     return analysis;

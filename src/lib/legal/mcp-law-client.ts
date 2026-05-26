@@ -11,6 +11,9 @@ const MCP_URL = process.env.KOREAN_LAW_MCP_URL ?? "https://korean-law-mcp.fly.de
 const INIT_TIMEOUT_MS = 8_000;
 const TOOL_TIMEOUT_MS = 20_000;
 
+// 법령명 → MST 인메모리 캐시 (프로세스 재시작 전까지 유효)
+const mstCache = new Map<string, string>();
+
 interface McpTextContent {
   type: "text";
   text: string;
@@ -34,7 +37,6 @@ function buildHeaders(sessionId: string): Record<string, string> {
     "Accept": "application/json, text/event-stream",
     "Mcp-Session-Id": sessionId,
   };
-  // korean-law-mcp은 법제처 LAW_API_OC 키를 Authorization: Bearer로 받는다
   const apiKey = process.env.LAW_API_OC?.trim();
   if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
   return headers;
@@ -64,6 +66,7 @@ async function parseResponse(resp: Response): Promise<string> {
 
 function extractText(json: McpJsonRpcResponse): string {
   if (json.error) throw new Error(`MCP error ${json.error.code}: ${json.error.message}`);
+  if (json.result?.isError) return "";
   return json.result?.content?.find((c) => c.type === "text")?.text?.trim() ?? "";
 }
 
@@ -74,7 +77,6 @@ export async function callMcpTool(
   const sessionId = crypto.randomUUID();
   const headers = buildHeaders(sessionId);
 
-  // 1. Initialize
   const initResp = await fetch(MCP_URL, {
     method: "POST",
     headers,
@@ -92,7 +94,6 @@ export async function callMcpTool(
   });
   if (!initResp.ok) throw new Error(`MCP init failed: ${initResp.status}`);
 
-  // 2. Tool call
   const toolResp = await fetch(MCP_URL, {
     method: "POST",
     headers,
@@ -109,14 +110,44 @@ export async function callMcpTool(
   return parseResponse(toolResp);
 }
 
-/** 법령 검색 — search_law */
+/** 법령 검색 — search_law (MST/lawId 획득용) */
 export async function mcpSearchLaw(query: string): Promise<string> {
   return callMcpTool("search_law", { query });
 }
 
-/** 특정 조문 전문 — get_law_article */
-export async function mcpGetLawArticle(lawName: string, article: string): Promise<string> {
-  return callMcpTool("get_law_article", { lawName, jo: article });
+/**
+ * 법령명으로 MST 조회 (인메모리 캐시 적용)
+ * 정확매칭 첫 번째 결과의 MST를 반환한다.
+ */
+export async function mcpGetLawMst(lawName: string): Promise<string> {
+  const cached = mstCache.get(lawName);
+  if (cached) return cached;
+
+  const text = await mcpSearchLaw(lawName);
+  const match = text.match(/MST[:\s]+(\d+)/);
+  if (!match?.[1]) throw new Error(`MST not found for: ${lawName}`);
+
+  mstCache.set(lawName, match[1]);
+  return match[1];
+}
+
+/**
+ * 조문 전문 조회 — get_law_text
+ * jo 생략 시 전체 조문, 지정 시 해당 조문만 반환한다.
+ */
+export async function mcpGetLawText(mst: string, jo?: string): Promise<string> {
+  const args: Record<string, unknown> = { mst };
+  if (jo) args.jo = jo;
+  return callMcpTool("get_law_text", args);
+}
+
+/**
+ * 법령명 + 조문 번호로 조문 전문을 한 번에 조회한다.
+ * search_law → MST → get_law_text 2단계 체인.
+ */
+export async function mcpFetchLawArticle(lawName: string, jo: string): Promise<string> {
+  const mst = await mcpGetLawMst(lawName);
+  return mcpGetLawText(mst, jo);
 }
 
 /** 판례·결정례 검색 — search_decisions (domain: "precedent") */

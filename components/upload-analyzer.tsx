@@ -158,7 +158,12 @@ export function UploadAnalyzer() {
 
     if (uploadKind === "ocr") {
       if (!codeIsValid) {
-        setError("파일 분석 전에 6자리 분석 코드를 먼저 입력해주세요.");
+        setError("파일 분析 전에 6자리 분析 코드를 먼저 입력해주세요.");
+        input.value = "";
+        return;
+      }
+      if (file.size > 4 * 1024 * 1024) {
+        setError("파일이 너무 큽니다(4MB 초과). 큰 PDF는 페이지를 사진으로 찍어 나눠 올리거나 텍스트를 직접 붙여넣어 주세요.");
         input.value = "";
         return;
       }
