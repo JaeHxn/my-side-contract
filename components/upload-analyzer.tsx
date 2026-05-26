@@ -181,7 +181,7 @@ export function UploadAnalyzer() {
 
     try {
       const text = await file.text();
-      setContractText(text.slice(0, 50000));
+      setContractText(text.slice(0, 20000));
       setFileName(file.name);
       setError("");
       setOcrWarning("");
@@ -217,7 +217,7 @@ export function UploadAnalyzer() {
         throw new Error("OCR 결과에서 읽을 수 있는 텍스트를 찾지 못했습니다. 더 선명한 파일을 올리거나 직접 입력해 주세요.");
       }
 
-      setContractText(payload.text.slice(0, 50000));
+      setContractText(payload.text.slice(0, 20000));
       setFileName(payload.fileName || file.name);
       setError("");
       setOcrWarning(payload.warnings?.map((warning) => warning.message).filter(Boolean).join(" ") || "");
@@ -436,13 +436,13 @@ export function UploadAnalyzer() {
               className="min-h-[280px] w-full resize-y rounded-lg border border-ink/10 bg-paper/70 p-4 text-base leading-7 text-ink outline-none transition placeholder:text-ink/35 focus:border-sage focus:bg-white focus:ring-4 focus:ring-sage/12"
               disabled={isOcrProcessing}
               id="contractText"
-              maxLength={50000}
+              maxLength={20000}
               onChange={(event) => setContractText(event.target.value)}
               placeholder="계약서 전문 또는 특약 조항을 붙여넣어 주세요."
               value={contractText}
             />
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-ink/50">
-              <span>{characterCount.toLocaleString("ko-KR")} / 50,000자</span>
+              <span>{characterCount.toLocaleString("ko-KR")} / 20,000자</span>
               <button
                 className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white px-3 py-1.5 text-ink transition hover:border-sage/35 hover:text-sage"
                 disabled={isOcrProcessing}

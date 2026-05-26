@@ -9,7 +9,7 @@ import { checkRateLimit, getClientIp } from "@/src/lib/server/rate-limit";
 import { ResultValidationError, saveContractAnalysisResult } from "@/src/lib/server/results";
 
 const analysisRequestSchema = z.object({
-  contractText: z.string().trim().min(30, "계약서 내용은 최소 30자 이상 입력해주세요.").max(50000),
+  contractText: z.string().trim().min(30, "계약서 내용은 최소 30자 이상 입력해주세요.").max(20000),
   category: z.enum(enabledCategories).default("housing-lease"),
   accessCode: z.string().trim().min(1, "6자리 분석 코드를 입력해주세요.")
 });

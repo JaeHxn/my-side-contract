@@ -49,13 +49,13 @@ export async function extractContractTextFromFile(input: OcrFileInput, apiKey = 
     throw new OcrProviderError("OCR result was too short.", 422);
   }
 
-  const text = rawText.slice(0, 50000);
+  const text = rawText.slice(0, 20000);
   const warnings =
     rawText.length > text.length
       ? [
           {
             code: "OCR_TEXT_TRUNCATED",
-            message: "OCR 결과가 50,000자를 넘어 분석 가능한 길이까지만 입력했습니다."
+            message: "OCR 결과가 20,000자를 넘어 분석 가능한 길이까지만 입력했습니다."
           }
         ]
       : undefined;
