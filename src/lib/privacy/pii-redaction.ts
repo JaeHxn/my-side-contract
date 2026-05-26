@@ -4,7 +4,9 @@ export type PiiRedactionType =
   | "RESIDENT_ID"
   | "NAME"
   | "ADDRESS"
-  | "BANK_ACCOUNT";
+  | "BANK_ACCOUNT"
+  | "BUSINESS_REG_NO"
+  | "CREDIT_CARD";
 
 export interface PiiRedaction {
   type: PiiRedactionType;
@@ -62,6 +64,16 @@ const redactionRules: RedactionRule[] = [
     pattern:
       /((?:\uBAA9\uC801\uBB3C\s*\uC18C\uC7AC\uC9C0|\uC784\uB300\uCC28\s*\uBAA9\uC801\uBB3C|\uC18C\uC7AC\uC9C0|\uC8FC\uC18C)\s*[:\uff1a]?\s*)([^\r\n]+)/g,
     replace: labeledReplacement("ADDRESS")
+  },
+  {
+    type: "BUSINESS_REG_NO",
+    pattern: /\b\d{3}-\d{2}-\d{5}\b/g,
+    replace: directReplacement("BUSINESS_REG_NO")
+  },
+  {
+    type: "CREDIT_CARD",
+    pattern: /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g,
+    replace: directReplacement("CREDIT_CARD")
   }
 ];
 

@@ -36,7 +36,7 @@ export class OcrProviderError extends Error {
   }
 }
 
-export async function extractContractTextFromFile(input: OcrFileInput, apiKey = process.env.OPENAI_API_KEY?.trim()) {
+export async function extractContractTextFromFile(input: OcrFileInput, apiKey = process.env.OPENAI_API_KEY?.trim()): Promise<OcrTextResult> {
   const normalized = validateOcrInput(input);
 
   if (!apiKey) {
@@ -95,6 +95,7 @@ function validateOcrInput(input: OcrFileInput): OcrFileInput {
 async function callOpenAiForOcr(input: OcrFileInput, apiKey: string): Promise<string> {
   const response = await fetch(OPENAI_RESPONSES_URL, {
     method: "POST",
+    signal: AbortSignal.timeout(30000),
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${apiKey}`

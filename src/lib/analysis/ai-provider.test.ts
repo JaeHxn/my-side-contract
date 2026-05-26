@@ -54,7 +54,7 @@ describe("maybeEnhanceWithAi", () => {
     expect(requestInit.headers).toMatchObject({
       authorization: "Bearer test-openai-key"
     });
-    expect(body.model).toBe("gpt-5.4-mini");
+    expect(body.model).toBe("gpt-5-mini");
     expect(body.input).not.toContain("tenant@example.com");
     expect(body.input).not.toContain("010-1234-5678");
     expect(body.input).not.toContain("900101-1234567");

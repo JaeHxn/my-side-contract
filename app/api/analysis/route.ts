@@ -5,6 +5,7 @@ import { enabledCategories } from "@/src/lib/contracts/categories";
 import { getAccessCodeAllowlist, verifyAccessCode } from "@/src/lib/payments/access-code";
 import { markAnalysisAccessCodeUsed, verifyAnalysisAccessCode } from "@/src/lib/server/access-codes";
 import { isDevelopmentSupabaseSetupError } from "@/src/lib/server/dev-fallback";
+import { checkRateLimit, getClientIp } from "@/src/lib/server/rate-limit";
 import { ResultValidationError, saveContractAnalysisResult } from "@/src/lib/server/results";
 
 const analysisRequestSchema = z.object({
@@ -14,6 +15,11 @@ const analysisRequestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  if (!checkRateLimit(`analysis:${ip}`, 10, 3_600_000)) {
+    return jsonNoStore({ error: "RATE_LIMITED", message: "잠시 후 다시 시도해주세요. (시간당 10회 제한)" }, 429);
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = analysisRequestSchema.safeParse(payload);
 

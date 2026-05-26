@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { OcrProviderError, OcrValidationError, extractContractTextFromFile } from "@/src/lib/ocr/openai-ocr";
+import { checkRateLimit, getClientIp } from "@/src/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  if (!checkRateLimit(`ocr:${ip}`, 3, 60_000)) {
+    return jsonNoStore({ error: "RATE_LIMITED", message: "잠시 후 다시 시도해주세요. (분당 3회 제한)" }, 429);
+  }
+
   const formData = await request.formData().catch(() => null);
   const file = formData?.get("file");
 

@@ -80,16 +80,32 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 }
 
+function escapeHtmlSimple(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 function errorPage(message: string): NextResponse {
   return new NextResponse(
     `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>Threads 연결 오류</title>
     <style>body{font-family:sans-serif;max-width:600px;margin:60px auto;padding:0 20px}
     .err{background:#fee;border:1px solid #fcc;border-radius:8px;padding:20px}
     a{color:#4a7c59;font-weight:bold}</style></head>
-    <body><div class="err"><h2>❌ 오류 발생</h2><p>${message}</p></div>
-    <p style="margin-top:20px"><a href="/admin">← 관리자 페이지로 돌아가기</a></p></body></html>`,
+    <body><div class="err"><h2>오류 발생</h2><p>${escapeHtmlSimple(message)}</p></div>
+    <p style="margin-top:20px"><a href="/admin">&#x2190; 관리자 페이지로 돌아가기</a></p></body></html>`,
     { headers: { "Content-Type": "text/html; charset=utf-8" } }
   );
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
 }
 
 function buildSuccessHtml({
@@ -101,6 +117,13 @@ function buildSuccessHtml({
   userId: string;
   expiryDate: string;
 }): string {
+  // All three values are HTML-escaped before insertion into the template.
+  // Copy buttons use data attributes read by an inline script so that no
+  // user-controlled text ever appears inside a JS string literal.
+  const safeUserId = escapeHtml(userId);
+  const safeLongToken = escapeHtml(longToken);
+  const safeExpiryDate = escapeHtml(expiryDate);
+
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -118,31 +141,41 @@ function buildSuccessHtml({
   </style>
 </head>
 <body>
-  <h2>✅ Threads 연결 완료!</h2>
-  <p>장기 액세스 토큰을 발급했습니다. <strong>${expiryDate}</strong>까지 유효합니다 (60일).</p>
+  <h2>Threads 연결 완료!</h2>
+  <p>장기 액세스 토큰을 발급했습니다. <strong>${safeExpiryDate}</strong>까지 유효합니다 (60일).</p>
 
   <div class="card">
     <p style="margin:0 0 10px;font-weight:bold">THREADS_USER_ID</p>
-    <div class="token-box">${userId}</div>
-    <button onclick="navigator.clipboard.writeText('${userId}')" style="margin-top:10px">복사</button>
+    <div class="token-box" id="uid">${safeUserId}</div>
+    <button data-copy-target="uid" style="margin-top:10px">복사</button>
   </div>
 
   <div class="card">
     <p style="margin:0 0 10px;font-weight:bold">THREADS_ACCESS_TOKEN (장기, 60일)</p>
-    <div class="token-box">${longToken}</div>
-    <button onclick="navigator.clipboard.writeText('${longToken}')" style="margin-top:10px">복사</button>
+    <div class="token-box" id="tok">${safeLongToken}</div>
+    <button data-copy-target="tok" style="margin-top:10px">복사</button>
   </div>
 
   <div class="card">
-    <p style="font-weight:bold;margin:0 0 12px">📋 Vercel에 추가하는 방법</p>
-    <div class="step">1. <a href="https://vercel.com/dashboard" target="_blank">vercel.com/dashboard</a> → 프로젝트 → Settings → Environment Variables</div>
+    <p style="font-weight:bold;margin:0 0 12px">Vercel에 추가하는 방법</p>
+    <div class="step">1. <a href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">vercel.com/dashboard</a> &rarr; 프로젝트 &rarr; Settings &rarr; Environment Variables</div>
     <div class="step">2. <code>THREADS_USER_ID</code> = 위 값 추가</div>
     <div class="step">3. <code>THREADS_ACCESS_TOKEN</code> = 위 값 추가</div>
     <div class="step">4. Redeploy (배포 다시 실행)</div>
   </div>
 
-  <p style="color:#888;font-size:13px">⚠️ 이 페이지를 닫기 전에 토큰을 복사하세요. 이 페이지는 다시 표시되지 않습니다.</p>
-  <p><a href="/admin">← 관리자 페이지로 돌아가기</a></p>
+  <p style="color:#888;font-size:13px">이 페이지를 닫기 전에 토큰을 복사하세요. 이 페이지는 다시 표시되지 않습니다.</p>
+  <p><a href="/admin">&#x2190; 관리자 페이지로 돌아가기</a></p>
+
+  <script>
+    document.querySelectorAll('button[data-copy-target]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var targetId = btn.getAttribute('data-copy-target');
+        var el = document.getElementById(targetId);
+        if (el) { navigator.clipboard.writeText(el.textContent || ''); }
+      });
+    });
+  </script>
 </body>
 </html>`;
 }

@@ -7,6 +7,9 @@ import {
   referencesForCategory
 } from "../analysis/law-references";
 
+const LAW_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const lawCache = new Map<string, { references: LawReference[]; expiresAt: number }>();
+
 interface LawApiDocument {
   title: string;
   id?: string;
@@ -73,6 +76,11 @@ function fallbackReferencesForCategory(category: ContractCategory): LawReference
  * - 어떤 요청이 실패해도 다른 카테고리 결과는 그대로 사용한다.
  */
 export async function fetchLawReferencesForCategory(category: ContractCategory): Promise<LawReference[]> {
+  const cached = lawCache.get(category);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.references;
+  }
+
   const oc = process.env.LAW_API_OC;
   const fallback = fallbackReferencesForCategory(category);
 
@@ -96,6 +104,7 @@ export async function fetchLawReferencesForCategory(category: ContractCategory):
     return fallback;
   }
 
+  lawCache.set(category, { references, expiresAt: Date.now() + LAW_CACHE_TTL_MS });
   return references;
 }
 
@@ -117,7 +126,7 @@ async function fetchLawDocumentReferences(
   oc: string,
   checkedAt: string
 ): Promise<LawReference[]> {
-  if (!document.id && !document.mst && !document.title) {
+  if (!document.id && !document.mst) {
     return [toLawReference(document, checkedAt)];
   }
 

@@ -45,8 +45,8 @@ const serviceSchema = {
     "30일간 결과 재조회",
   ],
   provider: {
-    "@type": "Organization",
-    name: "내편계약서",
+    "@type": "Person",
+    name: "내편계약서 운영자",
     url: siteUrl,
   },
   audience: {
@@ -178,27 +178,16 @@ const howToSchema = {
 
 const organizationSchema = {
   "@context": "https://schema.org",
-  "@type": "Organization",
-  name: "내편계약서",
+  "@type": "Person",
+  name: "내편계약서 운영자",
   url: siteUrl,
-  description: "계약서 AI 분석 서비스",
-  contactPoint: {
-    "@type": "ContactPoint",
-    contactType: "customer service",
-    availableLanguage: "Korean",
-  },
+  description: "계약서 AI 분석 서비스 개인 운영자",
   knowsAbout: [
     "주택임대차보호법",
     "근로기준법",
     "계약서 분석",
     "AI 법률 서비스",
   ],
-  areaServed: {
-    "@type": "Country",
-    name: "South Korea",
-    "@id": "https://www.wikidata.org/wiki/Q884",
-  },
-  foundingDate: "2026",
 };
 
 const legalTermsSchema = [

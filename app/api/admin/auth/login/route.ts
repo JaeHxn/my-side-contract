@@ -4,6 +4,7 @@ import {
   isAdminAuthConfigured,
   verifyAdminCredentials
 } from "@/src/lib/server/admin-auth";
+import { checkRateLimit, getClientIp } from "@/src/lib/server/rate-limit";
 import { jsonNoStore } from "@/app/api/admin/access-codes/shared";
 
 const loginRequestSchema = z.object({
@@ -12,6 +13,17 @@ const loginRequestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  if (!checkRateLimit(`admin-login:${ip}`, 5, 15 * 60_000)) {
+    return jsonNoStore(
+      {
+        error: "RATE_LIMITED",
+        message: "로그인 시도가 너무 많습니다. 15분 후 다시 시도해주세요."
+      },
+      429
+    );
+  }
+
   if (!isAdminAuthConfigured()) {
     return jsonNoStore(
       {

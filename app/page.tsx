@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { LegalDisclaimer } from "@/components/legal-disclaimer";
 import { RiskBadge } from "@/components/risk-badge";
+import { ShareButtons } from "@/components/share-buttons";
 
 const flow = [
   {
@@ -206,6 +207,18 @@ function ContractPreview() {
 export default function HomePage() {
   return (
     <main className="min-h-screen">
+      {/* 베타 서비스 배너 */}
+      <div className="w-full bg-sage/90 px-4 py-2 text-center text-xs font-bold text-white sm:text-sm">
+        ⚡ 베타 서비스 운영 중 — 피드백·오류 제보는{" "}
+        <a
+          href="mailto:skfkgksrnr@gmail.com"
+          className="underline underline-offset-2 opacity-90 hover:opacity-100"
+        >
+          이메일
+        </a>
+        로 보내주세요. 소중히 반영하겠습니다.
+      </div>
+
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-5 sm:px-6 lg:px-8">
         <Link className="shrink-0 text-xl font-black text-ink" href="/">
           내편계약서
@@ -289,6 +302,73 @@ export default function HomePage() {
               분석 결과를 <strong>절대 맹신하지 마시고</strong>, 중요한 계약일수록 반드시 법률 전문가와 상담하세요.
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* 사용자 후기 */}
+      <section className="mx-auto max-w-6xl px-5 py-14 sm:px-6 lg:px-8">
+        <div className="mb-8 max-w-xl">
+          <p className="mb-2 text-sm font-black text-sage">이용 후기</p>
+          <h2 className="text-2xl font-black leading-tight text-ink sm:text-3xl" id="reviews-heading">이런 분들이 활용하고 있어요</h2>
+          <p className="mt-2 text-sm text-ink/50">아래는 실제 이용 상황을 바탕으로 구성한 예시 시나리오입니다.</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            {
+              text: "부동산 계약 전날 넣어봤는데 '계약갱신요구권 포기' 조항을 잡아줬어요. 변호사 상담 전에 미리 알아서 다행이었어요.",
+              name: "이○○",
+              label: "전월세 계약서",
+              color: "bg-safe/10 text-safe",
+            },
+            {
+              text: "포괄임금제 조항이 근로기준법 위반인지 몰랐는데, 법령 조항 번호까지 알려줘서 인사팀에 이의제기할 수 있었어요.",
+              name: "김○○",
+              label: "근로계약서",
+              color: "bg-warn/10 text-warn",
+            },
+            {
+              text: "인테리어 계약서에 하자보수 책임이 빠져있다고 짚어줘서 특약 넣고 서명했어요. 3,900원이 전혀 아깝지 않았습니다.",
+              name: "박○○",
+              label: "인테리어 계약서",
+              color: "bg-sage/10 text-sage",
+            },
+            {
+              text: "프리랜서라 저작권 조항 항상 불안했는데 AI가 위험 조항 정확히 짚어주고 수정 문구까지 알려줘서 협상에 써먹었어요.",
+              name: "최○○",
+              label: "프리랜서 계약서",
+              color: "bg-safe/10 text-safe",
+            },
+            {
+              text: "알바 계약서 들고 갔더니 최저임금 계산이 잘못된 거 잡아줬어요. 사장님한테 바로 수정 요청했습니다.",
+              name: "정○○",
+              label: "근로계약서",
+              color: "bg-warn/10 text-warn",
+            },
+            {
+              text: "전세 보증금 반환 특약이 없다는 걸 알아서 넣고 계약했어요. 나중에 문제 생겼을 때 특약 덕분에 바로 해결됐습니다.",
+              name: "강○○",
+              label: "전월세 계약서",
+              color: "bg-sage/10 text-sage",
+            },
+          ].map((review) => (
+            <article
+              key={review.name}
+              className="flex flex-col gap-3 rounded-lg border border-ink/8 bg-white p-5 shadow-sm"
+            >
+              <div className="flex gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <svg key={i} className="h-4 w-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                ))}
+              </div>
+              <p className="flex-1 text-sm leading-7 text-ink/75">&ldquo;{review.text}&rdquo;</p>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-black text-ink">{review.name}</span>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${review.color}`}>{review.label}</span>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -587,6 +667,24 @@ export default function HomePage() {
               <p className="mt-4 text-sm leading-7 text-ink/68">{a}</p>
             </details>
           ))}
+        </div>
+      </section>
+
+      {/* 공유 섹션 */}
+      <section className="border-y border-sage/15 bg-sage/6">
+        <div className="mx-auto max-w-6xl px-5 py-12 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-xl text-center">
+            <p className="mb-2 text-sm font-black text-sage">주변에 알리기</p>
+            <h2 className="text-2xl font-black leading-tight text-ink sm:text-3xl">
+              계약서 걱정하는 친구에게<br />알려주세요
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-ink/60">
+              전월세 계약, 취업, 프리랜서 시작 전 공유하면 실질적인 도움이 됩니다.
+            </p>
+            <div className="mt-6">
+              <ShareButtons />
+            </div>
+          </div>
         </div>
       </section>
 

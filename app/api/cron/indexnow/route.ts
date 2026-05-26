@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://my-side-contract.vercel.app";
-const INDEXNOW_KEY = "f7e2d1c3b4a5968071e2f3d4c5b6a791";
+
+// IndexNow key must be configured via the INDEXNOW_KEY environment variable.
+// The value is not a secret (it is also published at /indexnow-<key>.txt) but
+// hardcoding it in source couples a deployment artefact to the codebase and
+// makes rotation harder.
+const INDEXNOW_KEY = process.env.INDEXNOW_KEY ?? "";
 
 // 검색엔진에 색인 요청할 URL 목록
 const URLS = [SITE_URL, `${SITE_URL}/upload`, `${SITE_URL}/payment`];
@@ -25,6 +30,10 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!INDEXNOW_KEY) {
+    return NextResponse.json({ error: "INDEXNOW_KEY environment variable is not configured" }, { status: 500 });
   }
 
   const results = await Promise.allSettled(

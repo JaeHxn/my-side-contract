@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerConfig, SupabaseConfigError } from "@/src/lib/supabase/server";
+import { checkRateLimit, getClientIp } from "@/src/lib/server/rate-limit";
 
 const PRICE = 3900;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  if (!checkRateLimit(`payment:${ip}`, 5, 3_600_000)) {
+    return NextResponse.json({ error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." }, { status: 429 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();

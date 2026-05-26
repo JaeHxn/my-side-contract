@@ -1,0 +1,12 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "내편계약서",
+  "name_for_model": "naepyun_contract",
+  "description_for_human": "전월세·근로·인테리어·프리랜서 계약서를 AI로 분석합니다.",
+  "description_for_model": "Korean contract analysis service. Analyzes lease, employment, interior, and freelance contracts against Korean law (주택임대차보호법, 근로기준법, etc.) to find unfavorable clauses, potentially illegal terms, and missing protection clauses.",
+  "auth": { "type": "none" },
+  "api": { "type": "openapi", "url": "https://my-side-contract.vercel.app/api/openapi.json" },
+  "logo_url": "https://my-side-contract.vercel.app/favicon.svg",
+  "contact_email": "skfkgksrnr@gmail.com",
+  "legal_info_url": "https://my-side-contract.vercel.app/terms"
+}

@@ -38,7 +38,7 @@ describe("extractContractTextFromFile", () => {
 
     expect(url).toBe("https://api.openai.com/v1/responses");
     expect(init.headers).toMatchObject({ authorization: "Bearer test-openai-key" });
-    expect(body.model).toBe("gpt-5.4-mini");
+    expect(body.model).toBe("gpt-5-mini");
     expect(body.input[0].content[0]).toMatchObject({
       type: "input_file",
       filename: "contract.pdf"

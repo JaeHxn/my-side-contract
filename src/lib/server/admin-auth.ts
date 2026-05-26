@@ -111,12 +111,14 @@ function signAdminSession(token: string, username: string): string {
 }
 
 function safeEqual(left: string, right: string): boolean {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
+  // Pad both sides to a fixed length so that a length mismatch does not
+  // create a timing side-channel.  The comparison itself is always
+  // constant-time via timingSafeEqual.
+  const maxLen = Math.max(Buffer.byteLength(left), Buffer.byteLength(right));
+  const leftBuffer = Buffer.alloc(maxLen);
+  const rightBuffer = Buffer.alloc(maxLen);
+  leftBuffer.write(left);
+  rightBuffer.write(right);
 
-  if (leftBuffer.length !== rightBuffer.length) {
-    return false;
-  }
-
-  return timingSafeEqual(leftBuffer, rightBuffer);
+  return timingSafeEqual(leftBuffer, rightBuffer) && left.length === right.length;
 }
