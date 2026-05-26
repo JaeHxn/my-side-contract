@@ -210,6 +210,21 @@ export default function HomePage() {
     <main className="min-h-screen">
       <BetaBanner />
 
+      {/* 공유 섹션 — 최상단 */}
+      <section className="border-b border-sage/15 bg-sage/6">
+        <div className="mx-auto max-w-6xl px-5 py-5 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-black text-ink">
+                계약서 걱정하는 친구에게 알려주세요
+              </p>
+              <p className="text-xs text-ink/50">전월세 계약, 취업, 프리랜서 시작 전 공유하면 실질적인 도움이 됩니다.</p>
+            </div>
+            <ShareButtons />
+          </div>
+        </div>
+      </section>
+
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-5 sm:px-6 lg:px-8">
         <Link className="shrink-0 text-xl font-black text-ink" href="/">
           내편계약서
@@ -658,24 +673,6 @@ export default function HomePage() {
               <p className="mt-4 text-sm leading-7 text-ink/68">{a}</p>
             </details>
           ))}
-        </div>
-      </section>
-
-      {/* 공유 섹션 */}
-      <section className="border-y border-sage/15 bg-sage/6">
-        <div className="mx-auto max-w-6xl px-5 py-12 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-xl text-center">
-            <p className="mb-2 text-sm font-black text-sage">주변에 알리기</p>
-            <h2 className="text-2xl font-black leading-tight text-ink sm:text-3xl">
-              계약서 걱정하는 친구에게<br />알려주세요
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-ink/60">
-              전월세 계약, 취업, 프리랜서 시작 전 공유하면 실질적인 도움이 됩니다.
-            </p>
-            <div className="mt-6">
-              <ShareButtons />
-            </div>
-          </div>
         </div>
       </section>
 

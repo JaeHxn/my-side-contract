@@ -29,6 +29,12 @@ type OcrResponse = {
   error?: string;
 };
 
+type AccessCodeVerifyResponse = {
+  ok?: boolean;
+  message?: string;
+  error?: string;
+};
+
 const acceptedUploadTypes = ".txt,.md,.text,.pdf,.png,.jpg,.jpeg,.webp";
 const textFileExtensions = [".txt", ".md", ".text"];
 const ocrFileExtensions = [".pdf", ".png", ".jpg", ".jpeg", ".webp"];
@@ -263,6 +269,8 @@ export function UploadAnalyzer() {
     setResultUrl(null);
 
     try {
+      await verifyAccessCodeBeforeAnalysis(trimmedCode);
+
       const response = await fetch("/api/analysis", {
         method: "POST",
         headers: {
@@ -295,6 +303,21 @@ export function UploadAnalyzer() {
       setError(caughtError instanceof Error ? caughtError.message : "분석 중 오류가 발생했습니다.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function verifyAccessCodeBeforeAnalysis(code: string) {
+    const response = await fetch("/api/access-code/verify", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ accessCode: code })
+    });
+    const payload = (await response.json().catch(() => ({}))) as AccessCodeVerifyResponse;
+
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.message || payload.error || "분석 코드를 확인할 수 없습니다.");
     }
   }
 
