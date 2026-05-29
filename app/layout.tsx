@@ -79,6 +79,7 @@ export const metadata: Metadata = {
   other: {
     "theme-color": "#1a1a1a",
     "naver-site-verification": "0c5be411b6be519cc76dad9ff52be3fe11cd5469",
+    "google-adsense-account": "ca-pub-5354319294441406",
   },
 };
 
